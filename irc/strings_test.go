@@ -11,6 +11,10 @@ import (
 	"github.com/ergochat/ergo/irc/i18n"
 )
 
+var (
+	asciiCasemappingOnly = []i18n.Casemapping{i18n.CasemappingASCII}
+)
+
 func TestCasefoldChannelAllCasemappings(t *testing.T) {
 	oldGlobalCasemapping := globalCasemappingSetting
 	t.Cleanup(func() {
@@ -82,6 +86,9 @@ func TestCasefoldChannelAllCasemappings(t *testing.T) {
 
 	// don't test permissive because it doesn't fail on bidi violations
 	casemappings := []i18n.Casemapping{i18n.CasemappingASCII, i18n.CasemappingPRECIS}
+	if !i18n.Enabled {
+		casemappings = asciiCasemappingOnly // XXX allow testing this package with i18n compiled out
+	}
 
 	for _, casemapping := range casemappings {
 		globalCasemappingSetting = casemapping
@@ -137,6 +144,9 @@ func TestCasefoldNameAllCasemappings(t *testing.T) {
 	}
 
 	casemappings := []i18n.Casemapping{i18n.CasemappingASCII, i18n.CasemappingPRECIS, i18n.CasemappingPermissive, i18n.CasemappingRFC1459Strict}
+	if !i18n.Enabled {
+		casemappings = asciiCasemappingOnly // XXX allow testing this package with i18n compiled out
+	}
 
 	for _, casemapping := range casemappings {
 		globalCasemappingSetting = casemapping
@@ -189,10 +199,8 @@ func TestCanonicalizeMaskWildcard(t *testing.T) {
 
 	tester("shivaram", "shivaram!*@*", nil)
 	tester("slingamn!shivaram", "slingamn!shivaram@*", nil)
-	tester("ברוך", "ברוך!*@*", nil)
 	tester("hacker@monad.io", "*!hacker@monad.io", nil)
 	tester("Evan!hacker@monad.io", "evan!hacker@monad.io", nil)
-	tester("РОТАТО!Potato", "ротато!potato@*", nil)
 	tester("tkadich*", "tkadich*!*@*", nil)
 	tester("SLINGAMN!*@*", "slingamn!*@*", nil)
 	tester("slingamn!shivaram*", "slingamn!shivaram*@*", nil)
@@ -206,4 +214,9 @@ func TestCanonicalizeMaskWildcard(t *testing.T) {
 	tester(":shivaram", "", errInvalidCharacter)
 	tester("shivaram!us er@host", "", errInvalidCharacter)
 	tester("shivaram!user@ho st", "", errInvalidCharacter)
+
+	if i18n.Enabled {
+		tester("ברוך", "ברוך!*@*", nil)
+		tester("РОТАТО!Potato", "ротато!potato@*", nil)
+	}
 }
