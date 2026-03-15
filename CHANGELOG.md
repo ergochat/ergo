@@ -1,9 +1,9 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
-## [2.18.0] - 2026-03-15
+## [2.18.0-rc1] - 2026-03-15
 
-We're pleased to be publishing v2.18.0, a new stable release. This release adds support for PostgreSQL and SQLite as history backends, expands the HTTP API, and includes bug fixes and minor improvements.
+We're pleased to be publishing the release candidate for v2.18.0 (the official release should follow within a week or so). This release adds support for PostgreSQL and SQLite as history backends, expands the HTTP API, and includes bug fixes and minor improvements.
 
 This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading. It includes no changes to the database file format.
 
