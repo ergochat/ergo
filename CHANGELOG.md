@@ -1,6 +1,48 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
+## [2.18.0] - 2026-03-15
+
+We're pleased to be publishing v2.18.0, a new stable release. This release adds support for PostgreSQL and SQLite as history backends, expands the HTTP API, and includes bug fixes and minor improvements.
+
+This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading. It includes no changes to the database file format.
+
+Due to the additional database drivers included in the default build, the size of the Ergo executable binary has increased since v2.17.0 (for example, the Linux binary for x86-64 has increased from 16.2 MiB to 26.1 MiB). See [docs/BUILD.md](https://github.com/ergochat/ergo/blob/master/docs/BUILD.md) if you need to build a smaller binary.
+
+Many thanks to [@clbm87](https://github.com/clbm87), [@emersion](https://github.com/emersion), [@felix](https://github.com/felix), flurry, [@furudean](https://github.com/furudean), [@k4ct0](https://github.com/k4ct0), [@mauropcorrea](https://github.com/mauropcorrea), [@NyaaaWhatsUpDoc](https://github.com/NyaaaWhatsUpDoc), [@poVoq](https://github.com/poVoq), [@progval](https://github.com/progval), [@rys](https://github.com/rys), Stryker, and th0th for helpful discussions, contributing patches, reporting issues, and helping test.
+
+### Config changes
+* Added `server.postgresql` block to configure a PostgreSQL history backend. (#2322, #2347)
+* Added `server.sqlite` block to configure a SQLite history backend. (#2352)
+* Added `server.initial-notice` to send a configurable notice to clients immediately after they connect, which can be used for open proxy detection (e.g., with HOPM) (#2317, thanks Stryker!)
+
+### Added
+* Added support for PostgreSQL and SQLite as history backends (#2322, #2352, thanks [@felix](https://github.com/felix), [@NyaaaWhatsUpDoc](https://github.com/NyaaaWhatsUpDoc), [@poVoq](https://github.com/poVoq)!)
+* Added new HTTP API endpoints (thanks [@clbm87](https://github.com/clbm87), flurry, [@furudean](https://github.com/furudean), [@mauropcorrea](https://github.com/mauropcorrea)!):
+  * `/v1/list` to list channels (#2358)
+  * `/v1/defcon` to view or modify the DEFCON level (#2359)
+  * `/v1/ns/passwd` to change account passwords (#2329)
+* Added support for `draft/ACCOUNTREQUIRED` in `005` ISUPPORT tokens when `accounts.require-sasl` is enabled (#2341)
+
+### Fixed
+* Push notifications now include the `msgid` tag, as required by the specification (#2350)
+* Fixed some cases where environment variable config overrides did not apply as expected (e.g., individual oper entries can now be overridden without replacing the entire `opers` block) (#2275, #2362, thanks th0th!)
+* Fixed error cases in `CS DEOP` and `EXTJWT` causing client disconnection (#2345, #2346, thanks [@k4ct0](https://github.com/k4ct0)!)
+* Fixed some `REDACT` responses (#2319, #2320)
+* Fixed some `FAIL` responses to `WEBPUSH` (#2351)
+* Fixed the `+l` (user limit) channel mode to reject non-positive values with an appropriate error (#2325, thanks [@progval](https://github.com/progval)!)
+* Fixed `MONITOR` so that clients monitoring a user receive `METADATA` notifications for that user even without the `extended-monitor` capability (#2309, #2310)
+* Improved handling of PROXY protocol errors on `proxy: true` listeners (#2334)
+* Fixed validation of the `bcrypt-cost` config value to prevent silent errors (#2311, #2312, thanks [@rys](https://github.com/rys)!)
+
+### Changed
+* HTTP API: reorganized NickServ-related endpoints under a `/v1/ns/` prefix (`/v1/ns/info`, `/v1/ns/list`, `/v1/ns/passwd`). The previous endpoint names (`/v1/account_details`, `/v1/account_list`) are retained as aliases for backwards compatibility. (#2329)
+* The `/v1/check_auth` API endpoint now supports certificate fingerprint authentication (#2354, thanks flurry!)
+* Reduced the deadline for `proxy: true` listeners to read the PROXY protocol header from 1 minute to 5 seconds (#2334)
+
+### Internal
+* Official release builds use Go 1.26.1 (#2330)
+
 ## [2.17.0] - 2025-12-22
 
 We're pleased to be publishing v2.17.0, a new stable release. This release adds support for the [IRCv3 metadata specification](https://ircv3.net/specs/extensions/metadata), thanks to [@thatcher-gaming](https://github.com/thatcher-gaming), as well as bug fixes and minor updates.
