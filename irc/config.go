@@ -1120,54 +1120,103 @@ func mungeFromEnvironment(config *Config, envPair string) (applied bool, name st
 		pathComponents[i] = screamingSnakeToKebab(pathComponent)
 	}
 
+	type mapInsertion struct {
+		m reflect.Value
+		k reflect.Value
+		v reflect.Value
+	}
+	var mapStack []mapInsertion
+
 	v := reflect.Indirect(reflect.ValueOf(config))
 	t := v.Type()
 	for _, component := range pathComponents {
 		if component == "" {
 			return false, "", &configPathError{name, "invalid", nil}
 		}
-		if v.Kind() != reflect.Struct {
-			return false, "", &configPathError{name, "index into non-struct", nil}
-		}
-		var nextField reflect.StructField
-		success := false
-		n := t.NumField()
-		// preferentially get a field with an exact yaml tag match,
-		// then fall back to case-insensitive comparison of field names
-		for i := 0; i < n; i++ {
-			field := t.Field(i)
-			if isExported(field) && field.Tag.Get("yaml") == component {
-				nextField = field
-				success = true
-				break
-			}
-		}
-		if !success {
+		if v.Kind() == reflect.Struct {
+			var nextField reflect.StructField
+			success := false
+			n := t.NumField()
+			// preferentially get a field with an exact yaml tag match,
+			// then fall back to case-insensitive comparison of field names
 			for i := 0; i < n; i++ {
 				field := t.Field(i)
-				if isExported(field) && strings.ToLower(field.Name) == component {
+				if isExported(field) && field.Tag.Get("yaml") == component {
 					nextField = field
 					success = true
 					break
 				}
 			}
-		}
-		if !success {
-			return false, "", &configPathError{name, fmt.Sprintf("couldn't resolve path component: `%s`", component), nil}
-		}
-		v = v.FieldByName(nextField.Name)
-		// dereference pointer field if necessary, initialize new value if necessary
-		if v.Kind() == reflect.Ptr {
-			if v.IsNil() {
-				v.Set(reflect.New(v.Type().Elem()))
+			if !success {
+				for i := 0; i < n; i++ {
+					field := t.Field(i)
+					if isExported(field) && strings.ToLower(field.Name) == component {
+						nextField = field
+						success = true
+						break
+					}
+				}
 			}
-			v = reflect.Indirect(v)
+			if !success {
+				return false, "", &configPathError{name, fmt.Sprintf("couldn't resolve path component: `%s`", component), nil}
+			}
+			v = v.FieldByName(nextField.Name)
+			// dereference pointer field if necessary, initialize new value if necessary
+			switch v.Kind() {
+			case reflect.Ptr:
+				if v.IsNil() {
+					v.Set(reflect.New(v.Type().Elem()))
+				}
+				v = reflect.Indirect(v)
+			case reflect.Map:
+				if v.IsNil() {
+					v.Set(reflect.MakeMap(v.Type()))
+				}
+			}
+			t = v.Type()
+		} else if v.Kind() == reflect.Map {
+			keyType := v.Type().Key()
+			valueType := v.Type().Elem()
+			if keyType.Kind() != reflect.String {
+				return false, "", &configPathError{name, "can't index into map unless its keys are strings", nil}
+			}
+			// index into the map, returns the zero value (invalid) if not found
+			key := reflect.ValueOf(component)
+			v2 := v.MapIndex(key)
+			if v2.IsValid() {
+				// make an addressable copy of the existing value:
+				v3 := reflect.New(valueType).Elem()
+				v3.Set(v2)
+				v2 = v3
+			} else {
+				// make an addressable value of the map value type:
+				v2 = reflect.New(valueType).Elem()
+				// if the map value type is *Baz, set it to a new(Baz):
+				if valueType.Kind() == reflect.Pointer {
+					v2.Set(reflect.New(valueType.Elem()))
+				}
+			}
+			// we are not operating directly on the current map member,
+			// we need to go back later and insert v2 into the map:
+			mapStack = append(mapStack, mapInsertion{m: v, k: key, v: v2})
+			if valueType.Kind() != reflect.Pointer {
+				v = v2
+			} else {
+				v = reflect.Indirect(v2)
+			}
+			t = v.Type()
+		} else {
+			return false, "", &configPathError{name, "can't index into fields other than struct or map", nil}
 		}
-		t = v.Type()
 	}
 	yamlErr := yaml.Unmarshal([]byte(value), v.Addr().Interface())
 	if yamlErr != nil {
 		return false, "", &configPathError{name, "couldn't deserialize YAML", yamlErr}
+	}
+	// go back and do all map assignments
+	for i := len(mapStack) - 1; i >= 0; i-- {
+		elem := mapStack[i]
+		elem.m.SetMapIndex(elem.k, elem.v)
 	}
 	return true, name, nil
 }
