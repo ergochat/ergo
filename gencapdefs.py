@@ -243,7 +243,12 @@ CAPDEFS = [
         url="https://ircv3.net/specs/extensions/metadata",
         standard="draft IRCv3",
     ),
-
+    CapDef(
+        identifier="UserQuery",
+        name="draft/user-query",
+        url="https://github.com/ircv3/ircv3-specifications/pull/569",
+        standard="draft IRCv3",
+    ),
 ]
 
 def validate_defs():
