@@ -41,7 +41,7 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
     - [Language](#language)
     - [Multiclient ("Bouncer")](#multiclient-bouncer)
     - [History](#history)
-    - [Persistent history with MySQL](#persistent-history-with-mysql)
+    - [Persistent history](#persistent-history)
     - [IP cloaking](#ip-cloaking)
     - [Moderation](#moderation)
     - [Push notifications](#push-notifications)
@@ -429,9 +429,32 @@ Unfortunately, client support for history playback is still patchy. In descendin
 1. You can autoreplay a fixed number of lines (e.g., 25) each time you join a channel using `/msg NickServ set autoreplay-lines 25`.
 
 
-## Persistent history with MySQL
+## Persistent history
 
-On most Linux and POSIX systems, it's straightforward to set up MySQL (or MariaDB) as a backend for persistent history. This increases the amount of history that can be stored, and ensures that message data will be retained on server restart (you can still use the configuration options to set a time limit for retention). Here's a quick start guide for Ubuntu based on [Digital Ocean's documentation](https://www.digitalocean.com/community/tutorials/how-to-install-mysql-on-ubuntu-20-04):
+Persistent history means storing chat history (messages, but also events like JOINs and PARTs) on disk. This increases the amount of history that can be stored, and also ensures that message data will be retained on server restart (you can still use the configuration options to set a time limit for retention). Ergo supports three backends for persistent history: MySQL, PostgreSQL, and SQLite. If you have a default build of Ergo (for example, a release build from our GitHub page, or our official Docker image), all three backends are available.
+
+To configure persistent history, you must set `history.persistent.enabled` to `true` in the Ergo config file. You may want to adjust other options in the `history` section at this time. Then you must additionally enable and configure one of the backends. Here are per-backend instructions:
+
+### SQLite
+
+SQLite is the easiest backend to enable; it's an embedded database that runs inside the Ergo process, without needing to talk to an external database server. Find `datastore.sqlite` in your config (or add it, following an up-to-date `default.yaml` as a guide):
+
+```yaml
+    sqlite:
+        enabled: true
+        # path to the SQLite database file
+        database-path: "ergo_history.db"
+        # timeout when waiting for write lock
+        busy-timeout: 5s
+        # maximum concurrent connections
+        max-conns: 1
+```
+
+This creates an on-disk file `ergo_history.db` for the history storage, by default in the same working directory as the Ergo process. We believe SQLite should scale to the needs of most Ergo deployments (in our initial benchmarks, there is a write bottleneck of approximately 1K messages/events per second).
+
+### MySQL
+
+Here's a quick start guide for MySQL on Ubuntu based on [Digital Ocean's documentation](https://www.digitalocean.com/community/tutorials/how-to-install-mysql-on-ubuntu-20-04). (Ergo is also compatible with MariaDB; a compatible implementation is available on most Linux and POSIX platforms.)
 
 1. Install the `mysql-server` package
 1. Run `mysql_secure_installation` as root; this corrects some insecure package defaults
@@ -451,6 +474,10 @@ On most Linux and POSIX systems, it's straightforward to set up MySQL (or MariaD
         history-database: "ergo_history"
         timeout: 3s
 ```
+
+### PostgreSQL
+
+If you don't already have a PostgreSQL database, follow [Digital Ocean's quick start guide](https://www.digitalocean.com/community/tutorials/how-to-install-postgresql-on-ubuntu-22-04-quickstart) to set one up, then edit `datastore.postgresql` in the Ergo config file with `enabled: true` and your database parameters.
 
 
 ## IP cloaking
