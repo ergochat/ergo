@@ -454,7 +454,7 @@ This creates an on-disk file `ergo_history.db` for the history storage, by defau
 
 ### MySQL
 
-Here's a quick start guide for MySQL on Ubuntu based on [Digital Ocean's documentation](https://www.digitalocean.com/community/tutorials/how-to-install-mysql-on-ubuntu-20-04):
+Here's a quick start guide for MySQL on Ubuntu based on [Digital Ocean's documentation](https://www.digitalocean.com/community/tutorials/how-to-install-mysql-on-ubuntu-20-04). (Ergo is also compatible with MariaDB; a compatible implementation is available on most Linux and POSIX platforms.)
 
 1. Install the `mysql-server` package
 1. Run `mysql_secure_installation` as root; this corrects some insecure package defaults
