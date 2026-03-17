@@ -876,8 +876,6 @@ datastore:
         #conn-max-lifetime: 180s
 
     # connection information for PostgreSQL (currently only used for persistent history)
-    # PostgreSQL support is compiled out by default: you may need to recompile with
-    # `make build_full`
     postgresql:
         enabled: false
         host: "localhost"
@@ -905,8 +903,6 @@ datastore:
         #connect-timeout: 10s
 
     # connection information for SQLite (currently only used for persistent history)
-    # SQLite support is compiled out by default: you may need to recompile with
-    # `make build_full`
     sqlite:
         enabled: false
         # path to the SQLite database file
