@@ -14,6 +14,7 @@ Many thanks to [@clbm87](https://github.com/clbm87), [@emersion](https://github.
 ### Config changes
 * Added `server.postgresql` block to configure a PostgreSQL history backend. (#2322, #2347)
 * Added `server.sqlite` block to configure a SQLite history backend. (#2352)
+* Added `metadata.operator-only-modification` to restrict metadata changes to IRC operators with the `metadata` capability (#2287, #2369, thanks [@clbm87](https://github.com/clbm87)!)
 * Added `server.initial-notice` to send a configurable notice to clients immediately after they connect, which can be used for open proxy detection (e.g., with HOPM) (#2317, thanks Stryker!)
 
 ### Added
