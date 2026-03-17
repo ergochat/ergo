@@ -31,10 +31,10 @@ Many thanks to [@clbm87](https://github.com/clbm87), [@emersion](https://github.
 * Fixed error cases in `CS DEOP` and `EXTJWT` causing client disconnection (#2345, #2346, thanks [@k4ct0](https://github.com/k4ct0)!)
 * Fixed some `REDACT` responses (#2319, #2320)
 * Fixed some `FAIL` responses to `WEBPUSH` (#2351)
-* Fixed the `+l` (user limit) channel mode to reject non-positive values with an appropriate error (#2325, thanks [@progval](https://github.com/progval)!)
-* Fixed `MONITOR` so that clients monitoring a user receive `METADATA` notifications for that user even without the `extended-monitor` capability (#2309, #2310)
+* The `+l` (user limit) channel mode now rejects non-positive values with an appropriate error (#2325, thanks [@progval](https://github.com/progval)!)
+* Clients monitoring a user now receive `METADATA` notifications for that user even without the `extended-monitor` capability (#2309, #2310)
 * Improved handling of PROXY protocol errors on `proxy: true` listeners (#2334)
-* Fixed validation of the `bcrypt-cost` config value to prevent silent errors (#2311, #2312, thanks [@rys](https://github.com/rys)!)
+* The `accounts.bcrypt-cost` config value is now validated at config load time (#2311, #2312, thanks [@rys](https://github.com/rys)!)
 
 ### Changed
 * HTTP API: reorganized NickServ-related endpoints under a `/v1/ns/` prefix (`/v1/ns/info`, `/v1/ns/list`, `/v1/ns/passwd`). The previous endpoint names (`/v1/account_details`, `/v1/account_list`) are retained as aliases for backwards compatibility. (#2329)
