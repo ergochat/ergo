@@ -3148,7 +3148,7 @@ func markReadHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) (exiting bool) {
 	config := server.Config()
 	if !config.Metadata.Enabled {
-		rb.Add(nil, server.name, "FAIL", "METADATA", "FORBIDDEN", utils.SafeErrorParam(msg.Params[0]), "Metadata is disabled on this server")
+		rb.Add(nil, server.name, "FAIL", "METADATA", "FORBIDDEN", utils.SafeErrorParam(msg.Params[0]), client.t("Metadata is disabled on this server"))
 		return
 	}
 
@@ -3163,7 +3163,13 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 	case "sub", "unsub", "subs":
 		// these are session-local and function the same whether or not the client is registered
 		return metadataSubsHandler(client, subcommand, msg.Params, rb)
-	case "get", "set", "list", "clear", "sync":
+	case "set", "clear":
+		if config.Metadata.OperatorOnlyModification && !client.HasRoleCapabs("metadata") {
+			rb.Add(nil, server.name, "FAIL", "METADATA", "FORBIDDEN", utils.SafeErrorParam(msg.Params[0]), client.t("Only server operators can modify metadata"))
+			return
+		}
+		fallthrough
+	case "get", "list", "sync":
 		if client.registered {
 			return metadataRegisteredHandler(client, config, subcommand, msg.Params, rb)
 		} else {

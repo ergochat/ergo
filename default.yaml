@@ -1150,6 +1150,8 @@ allow-environment-overrides: true
 metadata:
     # can clients store metadata?
     enabled: true
+    # if this is true, only server operators with the `metadata` capability can edit metadata:
+    operator-only-modification: false
     # how many keys can a client subscribe to?
     max-subs: 100
     # how many keys can be stored per entity?
