@@ -31,7 +31,7 @@ The `master` branch is not recommended for production use since it may contain b
 
 By default, Ergo is built with cgo disabled, producing a fully statically linked binary. You can disable this with `export CGO_ENABLED=1` before running `make`.
 
-Ergo can be cross-compiled using [standard Go environment variables](https://go.dev/doc/install/source#environment), e.g. `GOOS=linux GOARCH=arm GOARM=v6` will build an `ergo` binary suitable for a 32-bit Raspberry Pi.
+Ergo can be cross-compiled using [standard Go environment variables](https://go.dev/doc/install/source#environment), e.g. `GOOS=linux GOARCH=arm GOARM=v6 make build` will build an `ergo` binary suitable for a 32-bit Raspberry Pi.
 
 The default Ergo binary (built with `make` or `make build`) includes support for all optional features. Each optional feature is controlled via a separate build tag; to override the build tags, pass the environment variable `ERGO_BUILD_TAGS` with a space-separated list of tags. (For example, for parity with v2.17.0 and earlier, you can run `ERGO_BUILD_TAGS="i18n mysql" make`. Passing the empty string disables all optional features.)
 
