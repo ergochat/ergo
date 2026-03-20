@@ -7,7 +7,7 @@ We're pleased to be publishing the release candidate for v2.18.0 (the official r
 
 This release includes changes to the config file format, all of which are fully backwards-compatible and do not require updating the file before upgrading. It includes no changes to the database file format.
 
-Due to the additional database drivers included in the default build, the size of the Ergo executable binary has increased since v2.17.0 (for example, the Linux binary for x86-64 has increased from 16.2 MiB to 26.1 MiB). See [docs/BUILD.md](https://github.com/ergochat/ergo/blob/master/docs/BUILD.md) if you need to build a smaller binary.
+Due to the additional database drivers included in the default build, the size of the Ergo executable binary has increased since v2.17.0 (for example, the Linux binary for x86-64 has increased from 16.2 MiB to 26.1 MiB). See [docs/BUILD.md](https://github.com/ergochat/ergo/blob/master/docs/BUILD.md) if you need to build a smaller binary. Conversely, if you were already building from source, you may need to adjust your build commands in order to maintain parity; consult that file for details.
 
 Many thanks to [@clbm87](https://github.com/clbm87), [@emersion](https://github.com/emersion), [@felix](https://github.com/felix), flurry, [@furudean](https://github.com/furudean), [@k4ct0](https://github.com/k4ct0), [@mauropcorrea](https://github.com/mauropcorrea), [@NyaaaWhatsUpDoc](https://github.com/NyaaaWhatsUpDoc), [@poVoq](https://github.com/poVoq), [@progval](https://github.com/progval), [@rys](https://github.com/rys), Stryker, and th0th for helpful discussions, contributing patches, reporting issues, and helping test.
 
@@ -42,6 +42,7 @@ Many thanks to [@clbm87](https://github.com/clbm87), [@emersion](https://github.
 * Reduced the deadline for `proxy: true` listeners to read the PROXY protocol header from 1 minute to 5 seconds (#2334)
 
 ### Internal
+* Added build tags to control which optional features are built; see [docs/BUILD.md](https://github.com/ergochat/ergo/blob/master/docs/BUILD.md) for details (#2356)
 * Official release builds use Go 1.26.1 (#2330)
 
 ## [2.17.0] - 2025-12-22
