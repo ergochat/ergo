@@ -998,7 +998,7 @@ func (s *SQLite) ListChannels(cfchannels []string) (results []history.TargetList
 	results = make([]history.TargetListing, 0, len(cfchannels))
 	for _, chname := range cfchannels {
 		var nanotime int64
-		err = s.selectChannelTime.QueryRowContext(ctx, chname).Scan(&nanotime)
+		err := s.selectChannelTime.QueryRowContext(ctx, chname).Scan(&nanotime)
 		if err == sql.ErrNoRows {
 			continue // channel has no messages, skip it
 		}
