@@ -440,10 +440,10 @@ func nsGetHandler(service *ircService, server *Server, client *Client, command s
 		return
 	}
 
-	displaySetting(service, params[0], accountData.Settings, client, rb)
+	displaySetting(service, params[0], accountData.Settings, account, command == "saget", client, rb)
 }
 
-func displaySetting(service *ircService, settingName string, settings AccountSettings, client *Client, rb *ResponseBuffer) {
+func displaySetting(service *ircService, settingName string, settings AccountSettings, accountName string, privileged bool, client *Client, rb *ResponseBuffer) {
 	config := client.server.Config()
 	switch strings.ToLower(settingName) {
 	case "enforce":
@@ -485,7 +485,11 @@ func displaySetting(service *ircService, settingName string, settings AccountSet
 	case "always-on":
 		stored := settings.AlwaysOn
 		actual := persistenceEnabled(config.Accounts.Multiclient.AlwaysOn, stored)
-		service.Notice(rb, fmt.Sprintf(client.t("Your stored always-on setting is: %s"), userPersistentStatusToString(stored)))
+		if privileged {
+			service.Notice(rb, fmt.Sprintf(client.t("Stored always-on setting for account %s is: %s"), accountName, userPersistentStatusToString(stored)))
+		} else {
+			service.Notice(rb, fmt.Sprintf(client.t("Your stored always-on setting is: %s"), userPersistentStatusToString(stored)))
+		}
 		if actual {
 			service.Notice(rb, client.t("Given current server settings, your client is always-on"))
 		} else {
@@ -694,8 +698,12 @@ func nsSetHandler(service *ircService, server *Server, client *Client, command s
 
 	switch err {
 	case nil:
-		service.Notice(rb, client.t("Successfully changed your account settings"))
-		displaySetting(service, key, finalSettings, client, rb)
+		if privileged {
+			service.Notice(rb, fmt.Sprintf(client.t("Successfully changed account settings for %s"), account))
+		} else {
+			service.Notice(rb, client.t("Successfully changed your account settings"))
+		}
+		displaySetting(service, key, finalSettings, account, privileged, client, rb)
 	case errInvalidParams, errAccountDoesNotExist, errFeatureDisabled, errAccountUnverified, errAccountUpdateFailed:
 		service.Notice(rb, client.t(err.Error()))
 	case errNickAccountMismatch:
@@ -747,7 +755,7 @@ func nsVerifyEmailHandler(service *ircService, server *Server, client *Client, c
 	switch err {
 	case nil:
 		service.Notice(rb, client.t("Successfully changed your account settings"))
-		displaySetting(service, "email", client.AccountSettings(), client, rb)
+		displaySetting(service, "email", client.AccountSettings(), client.Account(), false, client, rb)
 	case errAccountVerificationInvalidCode:
 		service.Notice(rb, client.t(err.Error()))
 	default:
