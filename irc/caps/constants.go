@@ -65,6 +65,7 @@ const (
 	// https://ircv3.net/specs/extensions/chathistory
 	ChathistoryTargetsBatchType = "draft/chathistory-targets"
 	ExtendedISupportBatchType   = "draft/isupport"
+	UserQueryListBatchType      = "draft/user-query-list"
 )
 
 func init() {

@@ -990,6 +990,7 @@ fakelag:
         "CHATHISTORY": 16
         "MARKREAD":    16
         "MONITOR":     1
+        "USERQUERY":   1
         "WHO":         4
         "WEBPUSH":     1
 

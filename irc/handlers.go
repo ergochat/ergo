@@ -679,6 +679,10 @@ func capHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 		rb.session.capabilities.Subtract(toRemove)
 		rb.Add(nil, server.name, "CAP", details.nick, "ACK", capString)
 
+		if client.registered && toAdd.Has(caps.UserQuery) {
+			client.initializeUserQueries(rb.session)
+		}
+
 	case "END":
 		if !client.registered {
 			rb.session.capState = caps.NegotiatedState
@@ -2436,10 +2440,12 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 				return
 			}
 		}
+
+		// success, the message will be sent
+
 		nickMaskString := details.nickMask
 		accountName := details.accountName
-		var deliverySessions []*Session
-		deliverySessions = append(deliverySessions, user.Sessions()...)
+		deliverySessions := slices.Clone(user.Sessions())
 		// all sessions of the sender, except the originating session, get a copy as well:
 		if client != user {
 			for _, session := range client.Sessions() {
@@ -2449,8 +2455,17 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 			}
 		}
 
+		// "If a `PRIVMSG` is sent to the user while no user query is opened,
+		// the server automatically opens a user query before dispatching the message.
+		// Servers SHOULD broadcast the `USERQUERY OPEN` notification to all clients
+		// connected under the same account."
+		openedUserQuery := (histType == history.Privmsg) && user.OpenUserQuery(details.nickCasefolded, message.Time)
+
 		isBot := client.HasMode(modes.Bot)
 		for _, session := range deliverySessions {
+			if openedUserQuery && session.client == user && session.capabilities.Has(caps.UserQuery) {
+				session.Send(nil, "", "USERQUERY", "OPEN", details.nick)
+			}
 			hasTagsCap := session.capabilities.Has(caps.MessageTags)
 			// don't send TAGMSG at all if they don't have the tags cap
 			if histType == history.Tagmsg && hasTagsCap {
@@ -3837,6 +3852,99 @@ func operStatusVisible(client, target *Client, hasPrivs bool) bool {
 		return true
 	}
 	return !targetOper.Hidden
+}
+
+// USERQUERY <subcommand> [<nick>]
+func userqueryHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
+	if !client.registered || !rb.session.capabilities.Has(caps.UserQuery) {
+		return false
+	}
+
+	subcommand := msg.Params[0]
+	switch strings.ToUpper(subcommand) {
+	case "LIST":
+		userqueryListHandler(server, client, msg, rb)
+	case "OPEN":
+		userqueryOpenHandler(server, client, msg, rb)
+	case "CLOSE":
+		userqueryCloseHandler(server, client, msg, rb)
+	default:
+		rb.Add(nil, server.name, "FAIL", "USERQUERY", utils.SafeErrorParam(subcommand), "INVALID_PARAMS", client.t("Unknown subcommand"))
+	}
+	return false
+}
+
+func userqueryListHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) {
+	queries := client.copyUserQueries()
+
+	batchID := rb.StartNestedBatch(caps.UserQueryListBatchType)
+	defer rb.EndNestedBatch(batchID)
+
+	for cfnick := range queries {
+		rb.Add(nil, "", "USERQUERY", "LIST", server.clients.UnfoldNick(cfnick))
+	}
+}
+
+func userqueryOpenHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) {
+	if len(msg.Params) < 2 {
+		rb.Add(nil, server.name, "FAIL", "USERQUERY", "OPEN", "INVALID_PARAMS", client.t("Missing nickname parameter"))
+		return
+	}
+
+	targetNick := msg.Params[1]
+	cfnick, err := CasefoldName(targetNick)
+	if err != nil {
+		rb.Add(nil, server.name, "FAIL", "USERQUERY", "OPEN", "INVALID_PARAMS", utils.SafeErrorParam(targetNick), client.t("Invalid nickname"))
+		return
+	}
+
+	now := time.Now().UTC()
+	if !client.OpenUserQuery(cfnick, now) {
+		rb.Add(nil, server.name, "FAIL", "USERQUERY", "OPEN", "ALREADY_OPENED", targetNick, client.t("This user query was already opened"))
+		return
+	}
+
+	unfoldedTarget := server.clients.UnfoldNick(cfnick)
+	rb.Add(nil, "", "USERQUERY", "OPEN", unfoldedTarget)
+
+	// broadcast to other sessions:
+	for _, session := range client.Sessions() {
+		if session != rb.session && session.capabilities.Has(caps.UserQuery) {
+			session.Send(nil, "", "USERQUERY", "OPEN", unfoldedTarget)
+		}
+	}
+	return
+}
+
+func userqueryCloseHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) {
+	if len(msg.Params) < 2 {
+		rb.Add(nil, server.name, "FAIL", "USERQUERY", "CLOSE", "INVALID_PARAMS", client.t("Missing nickname parameter"))
+		return
+	}
+
+	targetNick := msg.Params[1]
+	cfnick, err := CasefoldName(targetNick)
+	if err != nil {
+		rb.Add(nil, server.name, "FAIL", "USERQUERY", "CLOSE", "INVALID_PARAMS", utils.SafeErrorParam(targetNick), client.t("Invalid nickname"))
+		return
+	}
+
+	if !client.CloseUserQuery(cfnick) {
+		rb.Add(nil, server.name, "FAIL", "USERQUERY", "CLOSE", "ALREADY_CLOSED", targetNick, client.t("This user query was already closed"))
+		return
+	}
+
+	unfoldedTarget := server.clients.UnfoldNick(cfnick)
+	nickMask := client.NickMaskString()
+	rb.Add(nil, nickMask, "USERQUERY", "CLOSE", unfoldedTarget)
+
+	// Send confirmation to all sessions with the capability
+	for _, session := range client.Sessions() {
+		if session != rb.session && session.capabilities.Has(caps.UserQuery) {
+			session.Send(nil, "", "USERQUERY", "CLOSE", unfoldedTarget)
+		}
+	}
+	return
 }
 
 // USERHOST <nickname>{ <nickname>}

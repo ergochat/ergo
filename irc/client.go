@@ -47,6 +47,8 @@ const (
 	// maximum total read markers that can be stored
 	// (writeback of read markers is controlled by lastSeen logic)
 	maxReadMarkers = 256
+	// maximum number of user queries that can be opened at once
+	maxUserQueries = 128
 
 	// should be long enough to handle multiple notifications in rapid succession,
 	// short enough that it doesn't waste a lot of RAM per client
@@ -95,6 +97,7 @@ type Client struct {
 	lastActive              time.Time            // last time they sent a command that wasn't PONG or similar
 	lastSeen                map[string]time.Time // maps device ID (including "") to time of last received command
 	readMarkers             map[string]time.Time // maps casefolded target to time of last read marker
+	userQueries             map[string]time.Time // maps casefolded target to time of last access (for draft/user-query)
 	loginThrottle           connection_limits.GenericThrottle
 	nextSessionID           int64 // Incremented when a new session is established
 	nick                    string
@@ -433,7 +436,7 @@ func (server *Server) RunClient(conn IRCConn) {
 	client.run(session)
 }
 
-func (server *Server) AddAlwaysOnClient(account ClientAccount, channelToStatus map[string]alwaysOnChannelStatus, lastSeen, readMarkers map[string]time.Time, uModes modes.Modes, realname string, pushSubscriptions []storedPushSubscription, metadata map[string]string) {
+func (server *Server) AddAlwaysOnClient(account ClientAccount, channelToStatus map[string]alwaysOnChannelStatus, lastSeen, readMarkers, userQueries map[string]time.Time, uModes modes.Modes, realname string, pushSubscriptions []storedPushSubscription, metadata map[string]string) {
 	now := time.Now().UTC()
 	config := server.Config()
 	if lastSeen == nil && account.Settings.AutoreplayMissed {
@@ -453,6 +456,7 @@ func (server *Server) AddAlwaysOnClient(account ClientAccount, channelToStatus m
 	client := &Client{
 		lastSeen:    lastSeen,
 		readMarkers: readMarkers,
+		userQueries: userQueries,
 		lastActive:  now,
 		channels:    make(ChannelSet),
 		ctime:       now,
@@ -789,6 +793,7 @@ func (client *Client) run(session *Session) {
 }
 
 func (client *Client) performReattach(session *Session) {
+	client.initializeUserQueries(session)
 	client.applyPreregMetadata(session)
 
 	client.server.playRegistrationBurst(session)
