@@ -84,7 +84,7 @@ You can also clone this repository and build from source. A quick start guide:
 1. `make`
 1. You should now have a binary named `ergo` in the working directory.
 
-Ergo vendors all its dependencies, so you will not need to fetch any dependencies remotely. For more information, including on build customization, see [docs/BUILD.md](https://github.com/ergochat/ergo/blob/master/docs/BUILD.md).
+Ergo vendors all its dependencies, so you will not need to fetch any dependencies remotely. For more information, including on build customization, see [docs/BUILD.md](https://github.com/ergochat/ergo/blob/stable/docs/BUILD.md).
 
 For information on contributing to Ergo, see [DEVELOPING.md](https://github.com/ergochat/ergo/blob/master/DEVELOPING.md).
 
