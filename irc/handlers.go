@@ -38,6 +38,12 @@ import (
 	"github.com/ergochat/ergo/irc/webpush"
 )
 
+var (
+	endOfPaginationTag = map[string]string{
+		caps.ChathistoryEndOfPaginationTag: "",
+	}
+)
+
 // helper function to parse ACC callbacks, e.g., mailto:person@example.com, tel:16505551234
 func parseCallback(spec string, config *Config) (callbackNamespace string, callbackValue string, err error) {
 	// XXX if we don't require verification, ignore any callback that was passed here
@@ -702,6 +708,7 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 	var err error
 	var disabled, listTargets bool
 	var targets []history.TargetListing
+	var endOfPagination bool
 	defer func() {
 		// errors are sent either without a batch, or in a draft/labeled-response batch as usual
 		if disabled {
@@ -715,7 +722,11 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 		} else {
 			// successful responses are sent as a chathistory or history batch
 			if listTargets {
-				batchID := rb.StartNestedBatch(caps.ChathistoryTargetsBatchType)
+				var batchTags map[string]string
+				if endOfPagination {
+					batchTags = endOfPaginationTag
+				}
+				batchID := rb.StartNestedBatch(batchTags, caps.ChathistoryTargetsBatchType)
 				defer rb.EndNestedBatch(batchID)
 				for _, target := range targets {
 					name := server.UnfoldName(target.CfName)
@@ -723,9 +734,9 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 						target.Time.Format(utils.IRCv3TimestampFormat))
 				}
 			} else if channel != nil {
-				channel.replayHistoryItems(rb, items, true)
+				channel.replayHistoryItems(rb, items, true, endOfPagination)
 			} else {
-				client.replayPrivmsgHistory(rb, items, target, true)
+				client.replayPrivmsgHistory(rb, items, target, true, endOfPagination)
 			}
 		}
 	}()
@@ -850,6 +861,12 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 			return
 		}
 		targets, err = client.listTargets(start.Time, end.Time, limit)
+		// adding the end-of-pagination tag is best effort; it's OK if we omit it
+		// in the edge case where we're at the end of the window but we coincidentally
+		// filled the whole limit (the client will just incur an additional roundtrip
+		// to page one more time). in contrast, a false positive would be problematic
+		// because the client would stop paging.
+		endOfPagination = (err == nil) && len(targets) < limit
 	} else {
 		channel, sequence, err = server.GetHistorySequence(nil, client, target)
 		if err != nil || sequence == nil {
@@ -860,6 +877,7 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 		} else {
 			items, err = sequence.Between(start, end, limit)
 		}
+		endOfPagination = (err == nil) && len(items) < limit
 	}
 	return
 }
@@ -1246,9 +1264,9 @@ func historyHandler(server *Server, client *Client, msg ircmsg.Message, rb *Resp
 
 	if len(items) != 0 {
 		if channel != nil {
-			channel.replayHistoryItems(rb, items, true)
+			channel.replayHistoryItems(rb, items, true, false)
 		} else {
-			client.replayPrivmsgHistory(rb, items, "", true)
+			client.replayPrivmsgHistory(rb, items, "", true, false)
 		}
 	}
 	return false
@@ -3275,7 +3293,7 @@ func metadataRegisteredHandler(client *Client, config *Config, subcommand string
 			return
 		}
 
-		batchId := rb.StartNestedBatch("metadata", target)
+		batchId := rb.StartNestedBatch(nil, "metadata", target)
 		defer rb.EndNestedBatch(batchId)
 
 		for _, key := range params[2:] {
@@ -3419,7 +3437,7 @@ func metadataSubsHandler(client *Client, subcommand string, params []string, rb 
 
 		subs := rb.session.MetadataSubscriptions()
 
-		batchID := rb.StartNestedBatch("metadata-subs")
+		batchID := rb.StartNestedBatch(nil, "metadata-subs")
 		defer rb.EndNestedBatch(batchID)
 
 		chunked := utils.ChunkifyParams(maps.Keys(subs), lineLength)

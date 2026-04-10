@@ -67,7 +67,7 @@ func broadcastMetadataUpdate(server *Server, sessions iter.Seq[*Session], origin
 }
 
 func syncClientMetadata(server *Server, rb *ResponseBuffer, target *Client) {
-	batchId := rb.StartNestedBatch("metadata", target.Nick())
+	batchId := rb.StartNestedBatch(nil, "metadata", target.Nick())
 	defer rb.EndNestedBatch(batchId)
 
 	subs := rb.session.MetadataSubscriptions()
@@ -81,7 +81,7 @@ func syncClientMetadata(server *Server, rb *ResponseBuffer, target *Client) {
 }
 
 func syncChannelMetadata(server *Server, rb *ResponseBuffer, channel *Channel) {
-	batchId := rb.StartNestedBatch("metadata", channel.Name())
+	batchId := rb.StartNestedBatch(nil, "metadata", channel.Name())
 	defer rb.EndNestedBatch(batchId)
 
 	subs := rb.session.MetadataSubscriptions()
@@ -107,7 +107,7 @@ func syncChannelMetadata(server *Server, rb *ResponseBuffer, channel *Channel) {
 }
 
 func playMetadataList(rb *ResponseBuffer, nick, target string, values map[string]string) {
-	batchId := rb.StartNestedBatch("metadata", target)
+	batchId := rb.StartNestedBatch(nil, "metadata", target)
 	defer rb.EndNestedBatch(batchId)
 
 	for key, val := range values {
@@ -117,7 +117,7 @@ func playMetadataList(rb *ResponseBuffer, nick, target string, values map[string
 }
 
 func playMetadataVerbBatch(rb *ResponseBuffer, target string, values map[string]string) {
-	batchId := rb.StartNestedBatch("metadata", target)
+	batchId := rb.StartNestedBatch(nil, "metadata", target)
 	defer rb.EndNestedBatch(batchId)
 
 	for key, val := range values {
