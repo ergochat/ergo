@@ -1032,12 +1032,12 @@ func (config *Config) processAPI() (err error) {
 		return errors.New("config.api.enabled is true, but listener address is empty")
 	}
 
-	config.API.bearerTokenBytes = make([][]byte, len(config.API.BearerTokens))
-	for i, tok := range config.API.BearerTokens {
+	config.API.bearerTokenBytes = make([][]byte, 0, len(config.API.BearerTokens))
+	for _, tok := range config.API.BearerTokens {
 		if tok == "" || tok == "example" {
 			continue
 		}
-		config.API.bearerTokenBytes[i] = []byte(tok)
+		config.API.bearerTokenBytes = append(config.API.bearerTokenBytes, []byte(tok))
 	}
 
 	var tlsConfig *tls.Config
