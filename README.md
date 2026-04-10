@@ -7,16 +7,14 @@ Ergo (formerly known as Oragono) is a modern IRC server written in Go. Its core 
 * Bleeding-edge [IRCv3 support](https://ircv3.net/software/servers.html), suitable for use as an IRCv3 reference implementation
 * High customizability via a rehashable (i.e., reloadable at runtime) YAML config
 
-Ergo is a fork of the [Ergonomadic](https://github.com/jlatt/ergonomadic) IRC daemon <3
+For more detailed information on Ergo's functionality, see:
 
----
-
-[![Go Report Card](https://goreportcard.com/badge/github.com/ergochat/ergo)](https://goreportcard.com/report/github.com/ergochat/ergo)
-[![build](https://github.com/ergochat/ergo/actions/workflows/build.yml/badge.svg)](https://github.com/ergochat/ergo/actions/workflows/build.yml)
-[![Download Latest Release](https://img.shields.io/badge/downloads-latest%20release-green.svg)](https://github.com/ergochat/ergo/releases/latest)
-[![Crowdin](https://d322cqt584bo4o.cloudfront.net/ergochat/localized.svg)](https://crowdin.com/project/ergochat)
+* [USERGUIDE.md, the guide for end users](https://github.com/ergochat/ergo/blob/stable/docs/USERGUIDE.md)
+* [MANUAL.md, the operator manual](https://github.com/ergochat/ergo/blob/stable/docs/MANUAL.md)
 
 If you want to take a look at a running Ergo instance or test some client code, feel free to play with [testnet.ergo.chat](https://testnet.ergo.chat/) (TLS on port 6697 or plaintext on port 6667).
+
+Ergo is a fork of the [Ergonomadic](https://github.com/jlatt/ergonomadic) IRC daemon <3
 
 ---
 
@@ -41,10 +39,6 @@ If you want to take a look at a running Ergo instance or test some client code, 
 * `UBAN`, a unified ban system that can target IPs, networks, masks, and registered accounts (`KLINE` and `DLINE` are also supported)
 * a focus on developing with [specifications](https://ergo.chat/specs.html)
 
-For more detailed information on Ergo's functionality, see:
-
-* [MANUAL.md, the operator manual](https://github.com/ergochat/ergo/blob/stable/docs/MANUAL.md)
-* [USERGUIDE.md, the guide for end users](https://github.com/ergochat/ergo/blob/stable/docs/USERGUIDE.md)
 
 ## Quick start guide
 
