@@ -851,6 +851,7 @@ func (client *Client) applyPreregMetadata(session *Session) {
 func (client *Client) Touch(session *Session) {
 	now := time.Now().UTC()
 	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
 	if client.registered {
 		client.updateIdleTimer(session, now)
 		if client.alwaysOn {
@@ -858,7 +859,6 @@ func (client *Client) Touch(session *Session) {
 			client.dirtyTimestamps = true
 		}
 	}
-	client.stateMutex.Unlock()
 }
 
 func (client *Client) setLastSeen(now time.Time, deviceID string) {
