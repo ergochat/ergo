@@ -19,7 +19,7 @@ This guide is for building Ergo from source. You can also obtain a pre-built rel
 
 You will need an [up-to-date distribution of the Go language for your OS and architecture](https://golang.org/dl/). Use the latest version available. (As of this writing, only Google's Go distribution is supported, since `gccgo` lacks support for current language features.) Check the output of `go version` to ensure it was installed correctly.
 
-You will need to either clone the repository from GitHub at [https://github.com/ergochat/ergo], or obtain a source tarball from our releases page on GitHub.
+You will need to either clone the repository from GitHub at https://github.com/ergochat/ergo, or obtain a source tarball from our releases page on GitHub.
 
 # What to build
 
