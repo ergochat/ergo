@@ -63,8 +63,9 @@ const (
 	// BOT mode: https://ircv3.net/specs/extensions/bot-mode
 	BotTagName = "bot"
 	// https://ircv3.net/specs/extensions/chathistory
-	ChathistoryTargetsBatchType = "draft/chathistory-targets"
-	ExtendedISupportBatchType   = "draft/isupport"
+	ChathistoryTargetsBatchType   = "draft/chathistory-targets"
+	ExtendedISupportBatchType     = "draft/isupport"
+	ChathistoryEndOfPaginationTag = "draft/chathistory-end"
 )
 
 func init() {

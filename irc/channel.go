@@ -979,7 +979,7 @@ func (channel *Channel) autoReplayHistory(client *Client, rb *ResponseBuffer, sk
 		}
 	}
 	if 0 < numItems {
-		channel.replayHistoryItems(rb, items, false)
+		channel.replayHistoryItems(rb, items, false, false)
 		rb.Flush(true)
 	}
 }
@@ -1069,7 +1069,7 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 	client.server.logger.Debug("channels", fmt.Sprintf("%s left channel %s", details.nick, chname))
 }
 
-func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.Item, chathistoryCommand bool) {
+func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.Item, chathistoryCommand, endOfPagination bool) {
 	// send an empty batch if necessary, as per the CHATHISTORY spec
 	chname := channel.Name()
 	client := rb.target
@@ -1089,7 +1089,11 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 		}
 	}
 
-	batchID := rb.StartNestedBatch("chathistory", chname)
+	var batchTags map[string]string
+	if chathistoryCommand && endOfPagination {
+		batchTags = endOfPaginationTag
+	}
+	batchID := rb.StartNestedBatch(batchTags, "chathistory", chname)
 	defer rb.EndNestedBatch(batchID)
 
 	for _, item := range items {
