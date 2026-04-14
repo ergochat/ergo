@@ -3269,6 +3269,16 @@ func metadataRegisteredHandler(client *Client, config *Config, subcommand string
 			}
 		}
 
+	case "clear":
+		if !metadataCanIEditThisTarget(client, targetObj) {
+			noKeyPerms("*")
+			return
+		}
+
+		values := targetObj.ClearMetadata()
+
+		playMetadataList(rb, client.Nick(), target, values)
+
 	case "get":
 		if !metadataCanISeeThisTarget(client, targetObj) {
 			noKeyPerms("*")
@@ -3295,19 +3305,19 @@ func metadataRegisteredHandler(client *Client, config *Config, subcommand string
 		}
 
 	case "list":
-		playMetadataList(rb, client.Nick(), target, targetObj.ListMetadata())
-
-	case "clear":
-		if !metadataCanIEditThisTarget(client, targetObj) {
+		if !metadataCanISeeThisTarget(client, targetObj) {
 			noKeyPerms("*")
 			return
 		}
 
-		values := targetObj.ClearMetadata()
-
-		playMetadataList(rb, client.Nick(), target, values)
+		playMetadataList(rb, client.Nick(), target, targetObj.ListMetadata())
 
 	case "sync":
+		if !metadataCanISeeThisTarget(client, targetObj) {
+			noKeyPerms("*")
+			return
+		}
+
 		if targetChannel != nil {
 			syncChannelMetadata(server, rb, targetChannel)
 		}
