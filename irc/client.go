@@ -851,6 +851,7 @@ func (client *Client) applyPreregMetadata(session *Session) {
 func (client *Client) Touch(session *Session) {
 	now := time.Now().UTC()
 	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
 	if client.registered {
 		client.updateIdleTimer(session, now)
 		if client.alwaysOn {
@@ -858,7 +859,6 @@ func (client *Client) Touch(session *Session) {
 			client.dirtyTimestamps = true
 		}
 	}
-	client.stateMutex.Unlock()
 }
 
 func (client *Client) setLastSeen(now time.Time, deviceID string) {
@@ -888,16 +888,27 @@ func (session *Session) handleIdleTimeout() {
 		pingTimeout = TorPingTimeout
 	}
 
+	var shouldDestroy, shouldSendPing bool
+	defer func() {
+		if shouldDestroy {
+			session.client.Quit(fmt.Sprintf("Ping timeout: %v", totalTimeout), session)
+			session.client.destroy(session)
+		} else if shouldSendPing {
+			session.Ping()
+		}
+	}()
+
 	session.client.stateMutex.Lock()
+	defer session.client.stateMutex.Unlock()
 	now := time.Now()
 	timeUntilDestroy := session.lastTouch.Add(totalTimeout).Sub(now)
 	timeUntilPing := session.lastTouch.Add(pingTimeout).Sub(now)
-	shouldDestroy := session.pingSent && timeUntilDestroy <= 0
+	shouldDestroy = session.pingSent && timeUntilDestroy <= 0
 	// XXX this should really be time <= 0, but let's do some hacky timer coalescing:
 	// a typical idling client will do nothing other than respond immediately to our pings,
 	// so we'll PING at t=0, they'll respond at t=0.05, then we'll wake up at t=90 and find
 	// that we need to PING again at t=90.05. Rather than wake up again, just send it now:
-	shouldSendPing := !session.pingSent && timeUntilPing <= PingCoalesceThreshold
+	shouldSendPing = !session.pingSent && timeUntilPing <= PingCoalesceThreshold
 	if !shouldDestroy {
 		if shouldSendPing {
 			session.pingSent = true
@@ -915,14 +926,6 @@ func (session *Session) handleIdleTimeout() {
 		}
 		session.idleTimer.Stop()
 		session.idleTimer.Reset(nextTimeout)
-	}
-	session.client.stateMutex.Unlock()
-
-	if shouldDestroy {
-		session.client.Quit(fmt.Sprintf("Ping timeout: %v", totalTimeout), session)
-		session.client.destroy(session)
-	} else if shouldSendPing {
-		session.Ping()
 	}
 }
 
