@@ -101,7 +101,7 @@ func (nl *NetListener) serve() {
 			if ok {
 				if wConn.ProxyError == nil {
 					confirmProxyData(wConn, "", "", "", nl.server.Config())
-					go nl.server.RunClient(NewIRCStreamConn(wConn))
+					go nl.server.RunClient(NewIRCStreamConn(wConn), nil)
 				} else {
 					nl.server.logger.Error("internal", "PROXY protocol error", nl.addr, wConn.ProxyError.Error())
 					conn.Close()
@@ -158,6 +158,7 @@ func (wl *WSListener) handle(w http.ResponseWriter, r *http.Request) {
 	remoteAddr := r.RemoteAddr
 	xff := r.Header.Get("X-Forwarded-For")
 	xfp := r.Header.Get("X-Forwarded-Proto")
+	cookies := extractCookies(r)
 
 	wsUpgrader := websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
@@ -203,7 +204,7 @@ func (wl *WSListener) handle(w http.ResponseWriter, r *http.Request) {
 	// avoid a DoS attack from buffering excessively large messages:
 	conn.SetReadLimit(int64(maxReadQBytes()))
 
-	go wl.server.RunClient(NewIRCWSConn(conn))
+	go wl.server.RunClient(NewIRCWSConn(conn), cookies)
 }
 
 // validate conn.ProxiedIP and conn.Secure against config, HTTP headers, etc.
@@ -232,4 +233,24 @@ func confirmProxyData(conn *utils.WrappedConn, remoteAddr, xForwardedFor, xForwa
 		conn.Secure = utils.IPInNets(utils.AddrToIP(conn.RemoteAddr()), config.Server.proxyAllowedFromNets) &&
 			xForwardedProto == "https"
 	}
+}
+
+func extractCookies(r *http.Request) (result []RequestCookie) {
+	headers := r.Header["Cookie"]
+	if len(headers) != 0 {
+		result = make([]RequestCookie, 0, len(headers))
+		for _, header := range headers {
+			// ParseCookie only returns Name, Value, and Quoted
+			// (unlike ParseSetCookie which returns, e.g. Path and Expires as well)
+			if cookies, err := http.ParseCookie(header); err == nil {
+				for _, cookie := range cookies {
+					result = append(result, RequestCookie{
+						Name:  cookie.Name,
+						Value: cookie.Value,
+					})
+				}
+			}
+		}
+	}
+	return
 }

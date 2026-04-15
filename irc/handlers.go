@@ -360,11 +360,6 @@ func authErrorToMessage(server *Server, err error) (msg string) {
 func authExternalHandler(server *Server, client *Client, session *Session, value []byte, rb *ResponseBuffer) bool {
 	defer session.sasl.Clear()
 
-	if rb.session.certfp == "" {
-		rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed, you are not connecting with a certificate"))
-		return false
-	}
-
 	// EXTERNAL doesn't carry an authentication ID (this is determined from the
 	// certificate), but does carry an optional authorization ID.
 	authzid := string(value)
@@ -376,9 +371,13 @@ func authExternalHandler(server *Server, client *Client, session *Session, value
 		authzid, deviceID = authzid[:strudelIndex], authzid[strudelIndex+1:]
 	}
 
-	if err == nil {
-		err = server.accounts.AuthenticateByCertificate(client, rb.session.certfp, rb.session.peerCerts, authzid)
+	if rb.session.certfp != "" || len(rb.session.cookies) != 0 {
+		err = server.accounts.AuthenticateByCertificateOrCookies(client, rb.session.certfp, rb.session.peerCerts, rb.session.cookies, authzid)
+	} else {
+		rb.Add(nil, server.name, ERR_SASLFAIL, client.nick, client.t("SASL authentication failed; no external credentials found (certificate or cookies)"))
+		return false
 	}
+
 	if err != nil {
 		sendAuthErrorResponse(client, rb, err)
 		return false

@@ -23,6 +23,14 @@ type AuthScriptInput struct {
 	peerCerts   []*x509.Certificate
 	IP          string                     `json:"ip,omitempty"`
 	OAuthBearer *oauth2.OAuthBearerOptions `json:"oauth2,omitempty"`
+	Cookies     []RequestCookie            `json:"cookies,omitempty"`
+}
+
+// RequestCookie represents a cookie sent by the client with the original HTTP
+// websocket upgrade request.
+type RequestCookie struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }
 
 type AuthScriptOutput struct {
@@ -49,7 +57,8 @@ func CheckAuthScript(sem utils.Semaphore, config ScriptConfig, input AuthScriptI
 	if err != nil {
 		return
 	}
-	outBytes, err := RunScript(config.Command, config.Args, inputBytes, config.Timeout, config.KillTimeout)
+	inputBytes = append(inputBytes, '\n')
+	outBytes, err := RunScript(config.Command, config.Socket, config.Args, inputBytes, config.Timeout, config.KillTimeout)
 	if err != nil {
 		return
 	}
@@ -96,7 +105,8 @@ func CheckIPBan(sem utils.Semaphore, config IPCheckScriptConfig, addr net.IP) (o
 	if err != nil {
 		return
 	}
-	outBytes, err := RunScript(config.Command, config.Args, inputBytes, config.Timeout, config.KillTimeout)
+	inputBytes = append(inputBytes, '\n')
+	outBytes, err := RunScript(config.Command, config.Socket, config.Args, inputBytes, config.Timeout, config.KillTimeout)
 	if err != nil {
 		return
 	}

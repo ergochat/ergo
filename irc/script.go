@@ -6,9 +6,12 @@ package irc
 import (
 	"bufio"
 	"io"
+	"net"
 	"os/exec"
 	"syscall"
 	"time"
+
+	"github.com/ergochat/irc-go/ircreader"
 )
 
 // general-purpose scripting API for oragono "plugins"
@@ -21,7 +24,10 @@ type scriptResponse struct {
 	err    error
 }
 
-func RunScript(command string, args []string, input []byte, timeout, killTimeout time.Duration) (output []byte, err error) {
+func RunScript(command, socket string, args []string, input []byte, timeout, killTimeout time.Duration) (output []byte, err error) {
+	if socket != "" {
+		return RunScriptOverSocket(socket, input, timeout)
+	}
 	cmd := exec.Command(command, args...)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
@@ -38,7 +44,6 @@ func RunScript(command string, args []string, input []byte, timeout, killTimeout
 		return
 	}
 	stdin.Write(input)
-	stdin.Write([]byte{'\n'})
 
 	// lots of potential race conditions here. we want to ensure that Wait()
 	// will be called, and will return, on the other goroutine, no matter
@@ -80,4 +85,21 @@ func processScriptOutput(cmd *exec.Cmd, stdout io.Reader, channel chan scriptRes
 	}
 
 	channel <- response
+}
+
+func RunScriptOverSocket(socket string, input []byte, timeout time.Duration) (output []byte, err error) {
+	sock, err := net.Dial("unix", socket)
+	if err != nil {
+		return
+	}
+	defer sock.Close()
+	sock.SetDeadline(time.Now().Add(timeout))
+	_, err = sock.Write(input)
+	if err != nil {
+		return
+	}
+	var reader ircreader.Reader
+	reader.Initialize(sock, 1024, 1024*1024)
+	output, err = reader.ReadLine()
+	return
 }
