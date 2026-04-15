@@ -348,6 +348,7 @@ type AccountConfig struct {
 
 type ScriptConfig struct {
 	Enabled        bool
+	Socket         string
 	Command        string
 	Args           []string
 	Timeout        time.Duration
@@ -1591,6 +1592,19 @@ func LoadConfig(filename string) (config *Config, err error) {
 
 	if config.Accounts.OAuth2.Enabled && config.Accounts.OAuth2.AuthScript && !config.Accounts.AuthScript.Enabled {
 		return nil, fmt.Errorf("oauth2 is enabled with auth-script, but no auth-script is enabled")
+	}
+
+	if config.Accounts.AuthScript.Enabled {
+		config.Accounts.AuthScript.Socket = strings.TrimPrefix(config.Accounts.AuthScript.Socket, "unix:")
+		if config.Accounts.AuthScript.Command != "" && config.Accounts.AuthScript.Socket != "" {
+			return nil, errors.New("cannot define both command and socket for auth-script")
+		}
+	}
+	if config.Server.IPCheckScript.Enabled {
+		config.Server.IPCheckScript.Socket = strings.TrimPrefix(config.Server.IPCheckScript.Socket, "unix:")
+		if config.Server.IPCheckScript.Command != "" && config.Server.IPCheckScript.Socket != "" {
+			return nil, errors.New("cannot define both command and socket for ip-check-script")
+		}
 	}
 
 	if !config.Accounts.Registration.Enabled {

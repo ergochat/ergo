@@ -2030,15 +2030,20 @@ func unmarshalRegisteredChannels(channelsStr string) (result []string) {
 	return
 }
 
-func (am *AccountManager) AuthenticateByCertificate(client *Client, certfp string, peerCerts []*x509.Certificate, authzid string) (err error) {
-	if certfp == "" {
-		return errAccountInvalidCredentials
-	}
+func (am *AccountManager) AuthenticateByCertificateOrCookies(client *Client, certfp string, peerCerts []*x509.Certificate, cookies []RequestCookie, authzid string) (err error) {
 
-	clientAccount, err := am.checkCertAuth(client.IP(), certfp, peerCerts, authzid)
+	clientAccount, err := am.checkCertOrCookieAuth(client.IP(), certfp, peerCerts, cookies, authzid)
 	if err != nil {
 		return
 	}
+
+	if authzid != "" {
+		if cfAuthzid, cErr := CasefoldName(authzid); cErr != nil || cfAuthzid != clientAccount.NameCasefolded {
+			err = errAuthzidAuthcidMismatch
+			return
+		}
+	}
+
 	if client.registered {
 		if clientAlready := am.server.clients.Get(clientAccount.Name); clientAlready != nil && clientAlready.AlwaysOn() {
 			err = errNickAccountMismatch
@@ -2049,7 +2054,7 @@ func (am *AccountManager) AuthenticateByCertificate(client *Client, certfp strin
 	return
 }
 
-func (am *AccountManager) checkCertAuth(ip net.IP, certfp string, peerCerts []*x509.Certificate, authzid string) (clientAccount ClientAccount, err error) {
+func (am *AccountManager) checkCertOrCookieAuth(ip net.IP, certfp string, peerCerts []*x509.Certificate, cookies []RequestCookie, authzid string) (clientAccount ClientAccount, err error) {
 	defer func() {
 		if err != nil {
 			return
@@ -2062,6 +2067,11 @@ func (am *AccountManager) checkCertAuth(ip net.IP, certfp string, peerCerts []*x
 		}
 	}()
 
+	if certfp == "" && len(cookies) == 0 {
+		err = errAccountInvalidCredentials
+		return
+	}
+
 	config := am.server.Config()
 	if config.Accounts.AuthScript.Enabled {
 		var output AuthScriptOutput
@@ -2071,7 +2081,7 @@ func (am *AccountManager) checkCertAuth(ip net.IP, certfp string, peerCerts []*x
 		}
 		output, err = CheckAuthScript(
 			am.server.semaphores.AuthScript, config.Accounts.AuthScript.ScriptConfig,
-			AuthScriptInput{Certfp: certfp, IP: ipString, peerCerts: peerCerts},
+			AuthScriptInput{Certfp: certfp, IP: ipString, peerCerts: peerCerts, Cookies: cookies},
 		)
 		if err != nil {
 			am.server.logger.Error("internal", "failed shell auth invocation", err.Error())
@@ -2079,6 +2089,11 @@ func (am *AccountManager) checkCertAuth(ip net.IP, certfp string, peerCerts []*x
 			clientAccount, err = am.loadWithAutocreation(output.AccountName, config.Accounts.AuthScript.Autocreate)
 			return
 		}
+	}
+
+	if certfp == "" {
+		err = errAccountInvalidCredentials
+		return
 	}
 
 	var account string
@@ -2094,13 +2109,6 @@ func (am *AccountManager) checkCertAuth(ip net.IP, certfp string, peerCerts []*x
 
 	if err != nil {
 		return
-	}
-
-	if authzid != "" {
-		if cfAuthzid, cErr := CasefoldName(authzid); cErr != nil || cfAuthzid != account {
-			err = errAuthzidAuthcidMismatch
-			return
-		}
 	}
 
 	// ok, we found an account corresponding to their certificate

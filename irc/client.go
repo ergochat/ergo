@@ -180,6 +180,7 @@ type Session struct {
 	socket            *Socket
 	realIP            net.IP
 	proxiedIP         net.IP
+	cookies           []RequestCookie
 	rawHostname       string
 	hostnameFinalized bool
 	isTor             bool
@@ -325,7 +326,7 @@ type ClientDetails struct {
 }
 
 // RunClient sets up a new client and runs its goroutine.
-func (server *Server) RunClient(conn IRCConn) {
+func (server *Server) RunClient(conn IRCConn, cookies []RequestCookie) {
 	config := server.Config()
 	wConn := conn.UnderlyingConn()
 	var isBanned, requireSASL bool
@@ -399,6 +400,7 @@ func (server *Server) RunClient(conn IRCConn) {
 		isTor:      wConn.Tor,
 		hideSTS:    wConn.Tor || wConn.HideSTS,
 		connID:     connID,
+		cookies:    cookies,
 	}
 	session.sasl.Initialize()
 	client.sessions = []*Session{session}

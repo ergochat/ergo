@@ -169,7 +169,7 @@ func (a *ergoAPI) handleCheckAuth(w http.ResponseWriter, r *http.Request) {
 	if request.AccountName != "" && request.Passphrase != "" {
 		account, err = a.server.accounts.checkPassphrase(request.AccountName, request.Passphrase)
 	} else if request.Certfp != "" {
-		account, err = a.server.accounts.checkCertAuth(nil, request.Certfp, nil, "")
+		account, err = a.server.accounts.checkCertOrCookieAuth(nil, request.Certfp, nil, nil, "")
 	} else {
 		err = errAccountInvalidCredentials
 	}

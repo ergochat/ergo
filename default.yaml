@@ -318,6 +318,8 @@ server:
         # constant list of args to pass to the command; the actual query
         # and result are transmitted over stdin/stdout:
         args: []
+        # alternatively, pass the input to a persistent process over unix domain socket:
+        #socket: "/tmp/ergo_ip_check_sidecar"
         # timeout for process execution, after which we send a SIGTERM:
         timeout: 9s
         # how long after the SIGTERM before we follow up with a SIGKILL:
@@ -617,6 +619,8 @@ accounts:
         # constant list of args to pass to the command; the actual authentication
         # data is transmitted over stdin/stdout:
         args: []
+        # alternatively, pass the input to a persistent process over unix domain socket:
+        #socket: "/tmp/ergo_auth_sidecar"
         # should we automatically create users if the plugin returns success?
         autocreate: true
         # timeout for process execution, after which we send a SIGTERM:

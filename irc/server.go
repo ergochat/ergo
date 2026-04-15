@@ -419,6 +419,8 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 		return false
 	}
 
+	session.cookies = nil // auth is done, allow GC'ing these later
+
 	if session.client != c {
 		// reattached, bail out.
 		// we'll play the reg burst later, on the new goroutine associated with
