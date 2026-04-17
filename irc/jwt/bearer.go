@@ -81,7 +81,7 @@ func (j *JWTAuthTokenConfig) Postprocess() error {
 	default:
 		return fmt.Errorf("invalid jwt algorithm: %s", j.Algorithm)
 	}
-	j.parser = jwt.NewParser(jwt.WithValidMethods(methods))
+	j.parser = jwt.NewParser(jwt.WithValidMethods(methods), jwt.WithExpirationRequired())
 
 	if len(j.AccountClaims) == 0 {
 		return fmt.Errorf("JWT auth enabled, but no account-claims specified")
