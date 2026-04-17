@@ -220,6 +220,8 @@ type Session struct {
 
 	metadataSubscriptions utils.HashSet[string]
 	metadataPreregVals    map[string]string
+
+	authTokenBuffer []byte // goroutine-local: TOKEN VALIDATE buffer
 }
 
 // MultilineBatch tracks the state of a client-to-server multiline batch.
@@ -402,6 +404,7 @@ func (server *Server) RunClient(conn IRCConn, cookies []RequestCookie) {
 		connID:     connID,
 		cookies:    cookies,
 	}
+	cookies = nil
 	session.sasl.Initialize()
 	client.sessions = []*Session{session}
 

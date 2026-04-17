@@ -1190,7 +1190,7 @@ func extjwtHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 		return false
 	}
 
-	tokenString, err := sConfig.Sign(claims)
+	tokenString, err := sConfig.SignEXTJWT(claims)
 
 	if err == nil {
 		maxTokenLength := maxLastArgLength
@@ -3726,6 +3726,181 @@ func summonHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 func timeHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	rb.Add(nil, server.name, RPL_TIME, client.nick, server.name, time.Now().UTC().Format(time.RFC1123))
 	return false
+}
+
+// TOKEN
+func tokenHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
+	config := server.Config()
+	if !config.AuthToken.Enabled {
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "*", client.t("TOKEN is disabled"))
+		return false
+	}
+
+	switch strings.ToUpper(msg.Params[0]) {
+	case "SERVICELIST":
+		if !client.registered {
+			rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "SERVICELIST", client.t("You must complete connection registration to list services"))
+			return false
+		}
+		tokenServicelistHandler(server, config, client, msg, rb)
+	case "GENERATE":
+		if !client.registered {
+			rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "GENERATE", client.t("You must complete connection registration to issue a token"))
+			return false
+		}
+		tokenGenerateHandler(server, config, client, msg, rb)
+	case "VALIDATE":
+		tokenValidateHandler(server, config, client, msg, rb)
+	default:
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "UNKNOWN_COMMAND", utils.SafeErrorParam(msg.Params[0]), client.t("Unknown subcommand"))
+	}
+	return false
+}
+
+func tokenServicelistHandler(server *Server, config *Config, client *Client, msg ircmsg.Message, rb *ResponseBuffer) {
+	for srv, conf := range config.AuthToken.Services {
+		rb.Add(nil, server.name, "NOTE", "TOKEN", "SERVICE", srv, conf.URL, conf.Description)
+	}
+	rb.Add(nil, server.name, "NOTE", "TOKEN", "END_OF_LIST", client.t("End of service list"))
+}
+
+func tokenGenerateHandler(server *Server, config *Config, client *Client, msg ircmsg.Message, rb *ResponseBuffer) {
+	if len(msg.Params) < 2 {
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "INVALID_PARAMS", "GENERATE", client.t("Service is a required argument to TOKEN GENERATE"))
+		return
+	}
+	service := strings.ToUpper(msg.Params[1])
+	var scope string
+	if len(msg.Params) > 2 {
+		scope = msg.Params[2]
+	}
+	details := client.Details()
+	if details.account == "" {
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "ACCOUNT_REQUIRED", "GENERATE", client.t("You must be logged into an account to issue a token"))
+		return
+	}
+	if details.nick != details.accountName {
+		// [evil laugh]
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "GENERATE", client.t("You must use your account name as your nickname to issue a token"))
+		return
+	}
+	claims := jwt.AuthToken{
+		ServerName:  server.name,
+		Service:     service,
+		Scope:       scope,
+		AccountName: details.accountName,
+	}
+	if channel := server.channels.Get(scope); channel != nil {
+		if m := channel.HighestUserMode(client); m != 0 {
+			claims.ChannelMode = string(m)
+		}
+	}
+	token, err := config.AuthToken.Issue(claims)
+	if err != nil {
+		switch err {
+		case jwt.ErrNoService:
+			rb.Add(nil, server.name, "FAIL", "TOKEN", "UNKNOWN_SERVICE", "GENERATE", client.t("Unknown service"))
+		default:
+			rb.Add(nil, server.name, "FAIL", "TOKEN", "INTERNAL_ERROR", "GENERATE", client.t("An error occurred"))
+		}
+		return
+	}
+
+	const tokenChunkLength = 300
+	for i := 0; i < len(token); i += 300 {
+		end := min(len(token), i+300)
+		chunk := token[i:end]
+		if end < len(token) {
+			rb.Add(nil, server.name, "TOKEN", service, "*", chunk)
+		} else {
+			rb.Add(nil, server.name, "TOKEN", service, chunk)
+		}
+	}
+}
+
+func tokenValidateHandler(server *Server, config *Config, client *Client, msg ircmsg.Message, rb *ResponseBuffer) {
+	var continuationExpected bool
+	defer func() {
+		if !continuationExpected {
+			rb.session.authTokenBuffer = nil
+		}
+	}()
+
+	if !config.AuthToken.AllowIP(client.IP()) {
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "VALIDATE", client.t("Your IP address is not allowed to validate auth tokens"))
+		return
+	}
+
+	if len(msg.Params) < 2 {
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "INVALID_PARAMS", "VALIDATE", client.t("No token to validate"))
+		return
+	}
+
+	tokenPart := msg.Params[1]
+	if len(tokenPart) > jwt.AuthTokenPartLength || len(rb.session.authTokenBuffer)+len(tokenPart) > jwt.MaxAuthTokenLength {
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "INVALID_TOKEN", "VALIDATE", client.t("Token exceeds maximum allowable length"))
+		return
+	}
+	rb.session.authTokenBuffer = append(rb.session.authTokenBuffer, tokenPart...)
+	if len(tokenPart) == 300 {
+		continuationExpected = true
+		return
+	}
+
+	claims, err := config.AuthToken.Verify(string(rb.session.authTokenBuffer))
+	if err != nil {
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "INVALID_TOKEN", "VALIDATE", client.t("Invalid token"))
+		return
+	}
+	srvConf, ok := config.AuthToken.Services[claims.Service]
+	if !ok {
+		// impossible since already checked by Verify()
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "INVALID_TOKEN", "VALIDATE", client.t("Invalid token"))
+		return
+	}
+
+	rb.Add(nil, server.name, "TOKEN", "CLAIM", "service", claims.Service)
+	rb.Add(nil, server.name, "TOKEN", "CLAIM", "url", srvConf.URL)
+	rb.Add(nil, server.name, "TOKEN", "CLAIM", "name", claims.AccountName)
+	rb.Add(nil, server.name, "TOKEN", "CLAIM", "account", claims.AccountName)
+	if claims.Scope != "" {
+		rb.Add(nil, server.name, "TOKEN", "CLAIM", "scope", claims.Scope)
+	}
+
+	defer func() {
+		rb.Add(nil, server.name, "NOTE", "TOKEN", "END_OF_LIST", client.t("End of claims list"))
+	}()
+
+	subject := server.clients.Get(claims.AccountName)
+	if subject == nil || subject.AccountName() != claims.AccountName {
+		return
+	}
+
+	var memberOf, operatorOf utils.TokenLineBuilder
+	memberOf.Initialize(300, " ")
+	operatorOf.Initialize(300, " ")
+
+	for _, channel := range subject.Channels() {
+		chname := channel.Name()
+		memberOf.Add(chname)
+		if channel.ClientIsAtLeast(subject, modes.ChannelOperator) {
+			operatorOf.Add(chname)
+		}
+	}
+
+	playMultilineClaim := func(claim string, lines []string) {
+		for i, line := range lines {
+			if i < len(lines)-1 {
+				rb.Add(nil, server.name, "TOKEN", "CLAIM", claim, "*", line)
+			} else {
+				rb.Add(nil, server.name, "TOKEN", "CLAIM", claim, line)
+			}
+		}
+	}
+	playMultilineClaim("member_of", memberOf.Lines())
+	playMultilineClaim("operator_of", operatorOf.Lines())
+
+	return
 }
 
 // TOPIC <channel> [<topic>]

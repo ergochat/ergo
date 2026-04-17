@@ -5,7 +5,6 @@ package jwt
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
@@ -108,12 +107,7 @@ func (j *JWTAuthConfig) Validate(t string) (accountName string, err error) {
 
 func (j *JWTAuthTokenConfig) keyBytes() (result []byte, err error) {
 	if j.KeyFile != "" {
-		o, err := os.Open(j.KeyFile)
-		if err != nil {
-			return nil, err
-		}
-		defer o.Close()
-		return io.ReadAll(o)
+		return os.ReadFile(j.KeyFile)
 	}
 	if j.KeyString != "" {
 		return []byte(j.KeyString), nil

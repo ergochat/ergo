@@ -533,6 +533,12 @@ Reloads the config file and updates TLS certificates on listeners`,
 
 Shows the time of the current, or the given, server.`,
 	},
+	"token": {
+		text: `TOKEN <subcommand> [args]
+
+TOKEN issues and validates tokens for use by external services.
+It is not intended for direct use by end users.`,
+	},
 	"topic": {
 		text: `TOPIC <channel> [topic]
 

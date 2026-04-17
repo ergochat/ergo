@@ -319,10 +319,6 @@ func init() {
 		"SUMMON": {
 			handler: summonHandler,
 		},
-		"TAGMSG": {
-			handler:   messageHandler,
-			minParams: 1,
-		},
 		"QUIT": {
 			handler:      quitHandler,
 			usablePreReg: true,
@@ -337,9 +333,18 @@ func init() {
 			minParams: 0,
 			capabs:    []string{"rehash"},
 		},
+		"TAGMSG": {
+			handler:   messageHandler,
+			minParams: 1,
+		},
 		"TIME": {
 			handler:   timeHandler,
 			minParams: 0,
+		},
+		"TOKEN": {
+			handler:      tokenHandler,
+			minParams:    1,
+			usablePreReg: true,
 		},
 		"TOPIC": {
 			handler:   topicHandler,
