@@ -5,6 +5,7 @@ package caps
 
 import (
 	"fmt"
+
 	"github.com/ergochat/ergo/irc/utils"
 )
 
@@ -99,8 +100,10 @@ func (s *Set) Strings(version Version, values Values, maxLen int) (result []stri
 	var t utils.TokenLineBuilder
 	t.Initialize(maxLen, " ")
 
+	var local Set
+	asSlice := local[:]
+	utils.BitsetCopyLocal(asSlice, s[:])
 	var capab Capability
-	asSlice := s[:]
 	for capab = 0; capab < numCapabs; capab++ {
 		// XXX clients that only support CAP LS 301 cannot handle multiline
 		// responses. omit some CAPs in this case, forcing the response to fit on
@@ -110,7 +113,7 @@ func (s *Set) Strings(version Version, values Values, maxLen int) (result []stri
 			continue
 		}
 		// skip any capabilities that are not enabled
-		if !utils.BitsetGet(asSlice, uint(capab)) {
+		if !utils.BitsetGetLocal(asSlice, uint(capab)) {
 			continue
 		}
 		capString := capab.Name()
