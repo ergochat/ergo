@@ -2,6 +2,7 @@ package jwt
 
 import (
 	"testing"
+	"time"
 
 	jwt "github.com/golang-jwt/jwt/v5"
 )
@@ -54,7 +55,7 @@ func TestJWTBearerAuth(t *testing.T) {
 			{
 				Algorithm:     "rsa",
 				KeyString:     rsaTestPubKey,
-				AccountClaims: []string{"preferred_username", "email"},
+				AccountClaims: []string{"preferred_username", "email", "account"},
 				StripDomain:   "example.com",
 			},
 		},
@@ -65,7 +66,7 @@ func TestJWTBearerAuth(t *testing.T) {
 	}
 
 	// fixed test vector signed with the RSA privkey:
-	token := "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJwcmVmZXJyZWRfdXNlcm5hbWUiOiJzbGluZ2FtbiJ9.caPZw2Dl4KZN-SErD5-WZB_lPPveHXaMCoUHxNebb94G9w3VaWDIRdngVU99JKx5nE_yRtpewkHHvXsQnNA_M63GBXGK7afXB8e-kV33QF3v9pXALMP5SzRwMgokyxas0RgHu4e4L0d7dn9o_nkdXp34GX3Pn1MVkUGBH6GdlbOdDHrs04pPQ0Qj-O2U0AIpnZq-X_GQs9ECJo4TlPKWR7Jlq5l9bS0dBnohea4FuqJr232je-dlRVkbCa7nrnFmsIsezsgA3Jb_j9Zu_iv460t_d2eaytbVp9P-DOVfzUfkBsKs-81URQEnTjW6ut445AJz2pxjX92X0GdmORpAkQ"
+	token := "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NvdW50Ijoic2xpbmdhbW4iLCJhdWQiOiJodHRwczovL2V4YW1wbGUuY29tL2ZpbGVob3N0IiwiZXhwIjo4MDgzODY1NDkyLCJpc3MiOiJlcmdvLnRlc3QiLCJzcnYiOiJGSUxFSE9TVCJ9.d_tMt4UWuuq3KDgKF4wCyL0tKaeKTCqrKgFZdogOetqmp9qVxi05sMlXawmheWAf3cjQG1ZxCvoc0TovI8H5d5DsVW5txNAXEhYlFKp8Vbd86J04VH2fn32brv5BH9oMPu60bnaEyv_vkKuFMANJzNgQOlMbNTo1IBKYmppi0dVbaBPtylMfL2jTQBwNj6m2_Bv_7N3tf9IgTIRX-Z2VbniHjTB9sEZaFgk6mxj-kwjxqu-lTAxmsPy4H5CBQb-Ea47LBFPmoLt6caxA4VCZyDq1chxcU5DLtv8ec9Sk1XvrGlyWtZ6pD9rT93jpSN6e5r5ceirkvgh20sUIWOOsHg"
 	accountName, err := j.Validate(token)
 	if err != nil {
 		t.Errorf("could not validate valid token: %v", err)
@@ -79,7 +80,8 @@ func TestJWTBearerAuth(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	jTok := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims(map[string]any{"preferred_username": "slingamn"}))
+	exp := time.Now().Add(time.Hour).Unix()
+	jTok := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims(map[string]any{"preferred_username": "slingamn", "exp": exp}))
 	token, err = jTok.SignedString(privKey)
 	if err != nil {
 		t.Fatal(err)
@@ -115,7 +117,7 @@ func TestJWTBearerAuth(t *testing.T) {
 	}
 
 	// test no valid claims
-	jTok = jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims(map[string]any{"sub": "slingamn"}))
+	jTok = jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims(map[string]any{"sub": "slingamn", "exp": exp}))
 	token, err = jTok.SignedString(privKey)
 	if err != nil {
 		t.Fatal(err)
@@ -127,7 +129,7 @@ func TestJWTBearerAuth(t *testing.T) {
 	}
 
 	// test email addresses
-	jTok = jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims(map[string]any{"email": "Slingamn@example.com"}))
+	jTok = jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims(map[string]any{"email": "Slingamn@example.com", "exp": exp}))
 	token, err = jTok.SignedString(privKey)
 	if err != nil {
 		t.Fatal(err)
