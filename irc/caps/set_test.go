@@ -107,3 +107,14 @@ func BenchmarkSetWrites(b *testing.B) {
 		set.Remove(LabeledResponse)
 	}
 }
+
+func BenchmarkSetStrings(b *testing.B) {
+	set := NewSet()
+	set.Add(AccountNotify)
+	set.Add(ZNCPlayback)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		set.Strings(Cap302, nil, 400)
+	}
+}
