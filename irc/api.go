@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"runtime"
+	"slices"
 	"strings"
 
 	"github.com/ergochat/ergo/irc/modes"
@@ -27,6 +28,7 @@ func newAPIHandler(server *Server) http.Handler {
 
 	// use Ergo as a source of truth for authentication in other services:
 	api.mux.HandleFunc("POST /v1/check_auth", api.handleCheckAuth)
+	api.mux.HandleFunc("POST /v1/whois", api.handleWhois)
 
 	// legacy names for /v1/ns endpoints:
 	api.mux.HandleFunc("POST /v1/saregister", api.handleSaregister)
@@ -420,6 +422,81 @@ func (channel *Channel) apiData() (result apiChannelData) {
 type apiListResponse struct {
 	apiGenericResponse
 	Channels []apiChannelData `json:"channels"`
+}
+
+type apiWhoisRequest struct {
+	Nickname string `json:"nickname"`
+}
+
+type apiWhoisChannelData struct {
+	Name     string `json:"name"`
+	Mode     string `json:"mode,omitempty"`
+	JoinTime string `json:"join_time"`
+}
+
+type apiWhoisResponse struct {
+	apiGenericResponse
+	Present      bool                  `json:"present"`
+	Nickname     string                `json:"nickname,omitempty"`
+	Username     string                `json:"username,omitempty"`
+	Hostname     string                `json:"hostname,omitempty"`
+	Realname     string                `json:"realname,omitempty"`
+	Account      string                `json:"account"`
+	Modes        string                `json:"modes,omitempty"`
+	Away         string                `json:"away,omitempty"`
+	Channels     []apiWhoisChannelData `json:"channels"`
+	SessionCount int                   `json:"session_count"`
+}
+
+func (a *ergoAPI) handleWhois(w http.ResponseWriter, r *http.Request) {
+	var request apiWhoisRequest
+	if err := a.decodeJSONRequest(&request, w, r); err != nil {
+		return
+	}
+
+	response := apiWhoisResponse{
+		apiGenericResponse: apiGenericResponse{Success: true},
+	}
+
+	client := a.server.clients.Get(request.Nickname)
+	if client != nil {
+		response.Present = true
+		details := client.Details()
+		response.Nickname = details.nick
+		response.Username = details.username
+		response.Hostname = details.hostname
+		response.Realname = details.realname
+		if details.account != "" {
+			response.Account = details.accountName
+		}
+		response.Modes = client.ModeString()
+		if away, awayMsg := client.Away(); away {
+			response.Away = awayMsg
+		}
+		response.SessionCount = len(client.Sessions())
+
+		channels := client.Channels()
+		response.Channels = make([]apiWhoisChannelData, 0, len(channels))
+		for _, channel := range channels {
+			present, joinTime, cModes := channel.ClientStatus(client)
+			if !present {
+				continue
+			}
+			chData := apiWhoisChannelData{
+				Name:     channel.Name(),
+				JoinTime: joinTime.Format(utils.IRCv3TimestampFormat),
+			}
+			for _, m := range modes.ChannelUserModes {
+				if slices.Contains(cModes, m) {
+					chData.Mode = string(rune(m))
+					break
+				}
+			}
+			response.Channels = append(response.Channels, chData)
+		}
+	}
+
+	a.writeJSONResponse(response, w, r)
 }
 
 func (a *ergoAPI) handleList(w http.ResponseWriter, r *http.Request) {

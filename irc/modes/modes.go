@@ -346,9 +346,13 @@ func (set *ModeSet) AllModes() (result []Mode) {
 		return
 	}
 
+	var local ModeSet
+	asSlice := local[:]
+	utils.BitsetCopyLocal(asSlice, set[:])
+
 	var i Mode
 	for i = minMode; i <= maxMode; i++ {
-		if set.HasMode(i) {
+		if utils.BitsetGetLocal(asSlice, uint(i)-minMode) {
 			result = append(result, i)
 		}
 	}

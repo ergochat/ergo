@@ -547,12 +547,12 @@ func (channel *Channel) ClientPrefixes(client *Client, isMultiPrefix bool) strin
 	}
 }
 
-func (channel *Channel) ClientStatus(client *Client) (present bool, joinTimeSecs int64, cModes modes.Modes) {
+func (channel *Channel) ClientStatus(client *Client) (present bool, joinTime time.Time, cModes modes.Modes) {
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 	memberData, present := channel.members[client]
 	if present {
-		return present, time.Unix(0, memberData.joinTime).Unix(), memberData.modes.AllModes()
+		return present, time.Unix(0, memberData.joinTime), memberData.modes.AllModes()
 	} else {
 		return
 	}
