@@ -8,12 +8,14 @@ import (
 	"os"
 	"strings"
 
+	"github.com/ergochat/ergo/irc/utils"
 	jwt "github.com/golang-jwt/jwt/v5"
 )
 
 var (
 	ErrAuthDisabled        = fmt.Errorf("JWT authentication is disabled")
 	ErrNoValidAccountClaim = fmt.Errorf("JWT token did not contain an acceptable account name claim")
+	ErrNoValidAudClaim     = fmt.Errorf("JWT token did not contain an acceptable aud claim")
 )
 
 // JWTAuthConfig is the config for Ergo to accept JWTs via draft/bearer
@@ -31,6 +33,8 @@ type JWTAuthTokenConfig struct {
 	parser        *jwt.Parser
 	AccountClaims []string `yaml:"account-claims"`
 	StripDomain   string   `yaml:"strip-domain"`
+	ValidateAud   []string `yaml:"validate-aud"`
+	allowedAuds   utils.HashSet[string]
 }
 
 func (j *JWTAuthConfig) Postprocess() error {
@@ -88,6 +92,11 @@ func (j *JWTAuthTokenConfig) Postprocess() error {
 	}
 
 	j.StripDomain = strings.ToLower(j.StripDomain)
+
+	if len(j.ValidateAud) != 0 {
+		j.allowedAuds = utils.SetLiteral(j.ValidateAud...)
+	}
+
 	return nil
 }
 
@@ -132,6 +141,10 @@ func (j *JWTAuthTokenConfig) Validate(t string) (accountName string, err error) 
 		return "", fmt.Errorf("unexpected type from parsed token claims: %T", claims)
 	}
 
+	if !j.validateAudClaim(claims) {
+		return "", ErrNoValidAudClaim
+	}
+
 	for _, c := range j.AccountClaims {
 		if v, ok := claims[c]; ok {
 			if vstr, ok := v.(string); ok {
@@ -149,4 +162,29 @@ func (j *JWTAuthTokenConfig) Validate(t string) (accountName string, err error) 
 	}
 
 	return "", ErrNoValidAccountClaim
+}
+
+func (j *JWTAuthTokenConfig) validateAudClaim(claims jwt.MapClaims) bool {
+	if j.allowedAuds == nil {
+		return true // no validate-aud means any aud is allowed
+	}
+
+	audClaim, ok := claims["aud"]
+	if !ok {
+		return false
+	}
+
+	switch aud := audClaim.(type) {
+	case string:
+		return j.allowedAuds.Has(aud)
+	case []string:
+		for _, a := range aud {
+			if j.allowedAuds.Has(a) {
+				return true
+			}
+		}
+		return false
+	default:
+		return false
+	}
 }

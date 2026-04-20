@@ -663,6 +663,9 @@ accounts:
                 # if a claim is formatted as an email address, require it to have the following domain,
                 # and then strip off the domain and use the local-part as the account name:
                 #strip-domain: "example.com"
+                # optional list of `aud` claims that are acceptable
+                # (if omitted, the aud claim is not validated):
+                #validate-aud: ["irc.mydomain.com"]
 
 # channel options
 channels:
