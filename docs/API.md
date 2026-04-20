@@ -179,3 +179,27 @@ The response is a JSON object with fields:
   * `max`: maximum number of users seen connected at once
 * `channels`: integer, number of channels currently active
 * `servers`: integer, number of servers connected in the network
+
+`/v1/whois`
+-----------
+
+This endpoint returns data about the current status of a nickname on the server. The request is a JSON object with fields:
+
+* `nickname`: string, nickname to query
+
+The response is a JSON object with fields:
+
+* `success`: whether the request succeeded (a successful execution returns `true` here even if the nickname is not present)
+* `present`: whether the nickname is present on the server; if false, the remaining fields are undefined
+* `nickname`: actual nickname (without case normalization) of the nickname as present on the server
+* `username`: IRC protocol username field of the user (not to be confused with account name)
+* `hostname`: hostname of the user
+* `realname`: realname/gecos of the user
+* `account`: account name of the user (without case normalization)
+* `modes`: string of all set user modes
+* `away`: user's away message if set (omitted if they are not away)
+* `channels`: list of channels the user is present in. Each channel is an object with fields:
+  * `name`: name of the channel
+  * `mode`: string, highest mode the user has in the channel (omitted if they have no mode)
+  * `join_time`: string, time the user joined the channel (in ISO8601 format)
+* `session_count`: integer, number of active sessions
