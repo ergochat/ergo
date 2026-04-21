@@ -215,9 +215,9 @@ CAPDEFS = [
     ),
    CapDef(
         identifier="NoImplicitNames",
-        name="draft/no-implicit-names",
-        url="https://github.com/ircv3/ircv3-specifications/pull/527",
-        standard="proposed IRCv3",
+        name="no-implicit-names",
+        url="https://ircv3.net/specs/extensions/no-implicit-names",
+        standard="IRCv3",
     ),
    CapDef(
         identifier="ExtendedISupport",

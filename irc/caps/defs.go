@@ -73,10 +73,6 @@ const (
 	// https://github.com/ircv3/ircv3-specifications/pull/398
 	Multiline Capability = iota
 
-	// NoImplicitNames is the proposed IRCv3 capability named "draft/no-implicit-names":
-	// https://github.com/ircv3/ircv3-specifications/pull/527
-	NoImplicitNames Capability = iota
-
 	// Persistence is the proposed IRCv3 capability named "draft/persistence":
 	// https://github.com/ircv3/ircv3-specifications/pull/503
 	Persistence Capability = iota
@@ -128,6 +124,10 @@ const (
 	// MultiPrefix is the IRCv3 capability named "multi-prefix":
 	// https://ircv3.net/specs/extensions/multi-prefix-3.1.html
 	MultiPrefix Capability = iota
+
+	// NoImplicitNames is the IRCv3 capability named "no-implicit-names":
+	// https://ircv3.net/specs/extensions/no-implicit-names
+	NoImplicitNames Capability = iota
 
 	// SASL is the IRCv3 capability named "sasl":
 	// https://ircv3.net/specs/extensions/sasl-3.2.html
@@ -184,7 +184,6 @@ var (
 		"draft/message-redaction",
 		"draft/metadata-2",
 		"draft/multiline",
-		"draft/no-implicit-names",
 		"draft/persistence",
 		"draft/pre-away",
 		"draft/read-marker",
@@ -198,6 +197,7 @@ var (
 		"labeled-response",
 		"message-tags",
 		"multi-prefix",
+		"no-implicit-names",
 		"sasl",
 		"server-time",
 		"setname",
