@@ -620,8 +620,7 @@ func batchHandlerMultiline(server *Server, client *Client, msg ircmsg.Message, r
 
 func batchHandlerTokenStart(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	if rb.session.tokenValidateBatch == nil {
-		if !server.Config().AuthToken.AllowIP(client.IP()) {
-			rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "VALIDATE", client.t("Your IP address is not allowed to validate auth tokens"))
+		if !tokenValidateCheckPermissions(server, server.Config(), client, rb) {
 			return false
 		}
 		if len(msg.Params) < 4 {
@@ -3899,6 +3898,21 @@ func tokenGenerateHandler(server *Server, config *Config, client *Client, msg ir
 	}
 }
 
+// tokenValidateCheckPermissions is the check to allow a client to validate,
+// or start validating, an authtoken. we may eventually add an optional
+// PASS requirement or similar.
+func tokenValidateCheckPermissions(server *Server, config *Config, client *Client, rb *ResponseBuffer) bool {
+	if !config.AuthToken.Enabled {
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "VALIDATE", client.t("Auth tokens are disabled"))
+		return false
+	}
+	if !config.AuthToken.AllowIP(client.IP()) {
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "VALIDATE", client.t("Your IP address is not allowed to validate auth tokens"))
+		return false
+	}
+	return true
+}
+
 func tokenValidateHandler(server *Server, config *Config, client *Client, msg ircmsg.Message, rb *ResponseBuffer) {
 	if !rb.session.capabilities.Has(caps.Batch) {
 		rb.Add(nil, server.name, "FAIL", "TOKEN", "NEED_CAPABILITY", "VALIDATE", client.t("TOKEN VALIDATE requires the batch capability"))
@@ -3926,8 +3940,7 @@ func tokenValidateHandler(server *Server, config *Config, client *Client, msg ir
 	}
 
 	// single command case, 3 parameters per TOKEN VALIDATE line (service, URL, token chunk)
-	if !config.AuthToken.AllowIP(client.IP()) {
-		rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "VALIDATE", client.t("Your IP address is not allowed to validate auth tokens"))
+	if !tokenValidateCheckPermissions(server, config, client, rb) {
 		return
 	}
 
