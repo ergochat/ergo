@@ -81,11 +81,7 @@ func TestJWTBearerAuth(t *testing.T) {
 		t.Fatal(err)
 	}
 	exp := time.Now().Add(time.Hour).Unix()
-	jTok := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims(map[string]any{"preferred_username": "slingamn", "exp": exp}))
-	token, err = jTok.SignedString(privKey)
-	if err != nil {
-		t.Fatal(err)
-	}
+	token = signTokenForTesting(jwt.SigningMethodRS256, privKey, jwt.MapClaims(map[string]any{"preferred_username": "slingamn", "exp": exp}))
 	accountName, err = j.Validate(token)
 	if err != nil {
 		t.Errorf("could not validate valid token: %v", err)
@@ -95,51 +91,114 @@ func TestJWTBearerAuth(t *testing.T) {
 	}
 
 	// test expiration
-	jTok = jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims(map[string]any{"preferred_username": "slingamn", "exp": 1675740865}))
-	token, err = jTok.SignedString(privKey)
-	if err != nil {
-		t.Fatal(err)
-	}
+	token = signTokenForTesting(jwt.SigningMethodRS256, privKey, jwt.MapClaims(map[string]any{"preferred_username": "slingamn", "exp": 1675740865}))
 	accountName, err = j.Validate(token)
 	if err == nil {
 		t.Errorf("validated expired token")
 	}
 
 	// test for the infamous algorithm confusion bug
-	jTok = jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims(map[string]any{"preferred_username": "slingamn"}))
-	token, err = jTok.SignedString([]byte(rsaTestPubKey))
-	if err != nil {
-		t.Fatal(err)
-	}
+	token = signTokenForTesting(jwt.SigningMethodHS256, []byte(rsaTestPubKey), jwt.MapClaims(map[string]any{"preferred_username": "slingamn"}))
 	accountName, err = j.Validate(token)
 	if err == nil {
 		t.Errorf("validated HS256 token despite RSA being required")
 	}
 
 	// test no valid claims
-	jTok = jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims(map[string]any{"sub": "slingamn", "exp": exp}))
-	token, err = jTok.SignedString(privKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	token = signTokenForTesting(jwt.SigningMethodRS256, privKey, jwt.MapClaims(map[string]any{"sub": "slingamn", "exp": exp}))
 	accountName, err = j.Validate(token)
 	if err != ErrNoValidAccountClaim {
 		t.Errorf("expected ErrNoValidAccountClaim, got: %v", err)
 	}
 
 	// test email addresses
-	jTok = jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims(map[string]any{"email": "Slingamn@example.com", "exp": exp}))
-	token, err = jTok.SignedString(privKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	token = signTokenForTesting(jwt.SigningMethodRS256, privKey, jwt.MapClaims(map[string]any{"email": "Slingamn@example.com", "exp": exp}))
 	accountName, err = j.Validate(token)
 	if err != nil {
 		t.Errorf("could not validate valid token: %v", err)
 	}
 	if accountName != "Slingamn" {
 		t.Errorf("incorrect account name for token: `%s`", accountName)
+	}
+}
+
+func signTokenForTesting(method jwt.SigningMethod, key any, claims jwt.MapClaims) (token string) {
+	jTok := jwt.NewWithClaims(method, claims)
+	token, err := jTok.SignedString(key)
+	if err != nil {
+		panic(err)
+	}
+	return token
+}
+
+func TestJWTBearerAudValidation(t *testing.T) {
+	key := []byte("MowTTyXKkN58DG2uNMsoCgAa6CM6ElFlcq_7Ocl6wsU")
+	j := JWTAuthConfig{
+		Enabled: true,
+		Tokens: []JWTAuthTokenConfig{
+			{
+				Algorithm:     "hmac",
+				KeyString:     string(key),
+				AccountClaims: []string{"account"},
+				ValidateAud:   []string{"irc.ergo.chat", "https://irc.ergo.chat"},
+			},
+		},
+	}
+
+	if err := j.Postprocess(); err != nil {
+		t.Fatal(err)
+	}
+
+	exp := time.Now().Add(time.Hour).Unix()
+
+	token := signTokenForTesting(jwt.SigningMethodHS256, key, jwt.MapClaims(map[string]any{"account": "slingamn", "exp": exp}))
+	if _, err := j.Validate(token); err == nil {
+		t.Errorf("validated token with missing aud")
+	}
+
+	token = signTokenForTesting(jwt.SigningMethodHS256, key, jwt.MapClaims(map[string]any{"account": "slingamn", "exp": exp, "aud": "irc.ergo.chat"}))
+	if _, err := j.Validate(token); err != nil {
+		t.Errorf("failed to validate token with string aud: %v", err)
+	}
+
+	token = signTokenForTesting(jwt.SigningMethodHS256, key, jwt.MapClaims(map[string]any{"account": "slingamn", "exp": exp, "aud": "ergo.chat"}))
+	if _, err := j.Validate(token); err == nil {
+		t.Errorf("validated token with invalid string aud")
+	}
+
+	token = signTokenForTesting(jwt.SigningMethodHS256, key, jwt.MapClaims(map[string]any{
+		"account": "slingamn",
+		"exp":     exp,
+		"aud":     []string{"https://example.com", "irc.ergo.chat"},
+	}))
+	if _, err := j.Validate(token); err != nil {
+		t.Errorf("failed to validate token with list aud: %v", err)
+	}
+
+	token = signTokenForTesting(jwt.SigningMethodHS256, key, jwt.MapClaims(map[string]any{
+		"account": "slingamn",
+		"exp":     exp,
+		"aud":     []string{"https://example.com", "ergo.chat"},
+	}))
+	if _, err := j.Validate(token); err == nil {
+		t.Errorf("validated token with invalid list aud")
+	}
+
+	token = signTokenForTesting(jwt.SigningMethodHS256, key, jwt.MapClaims(map[string]any{
+		"account": "slingamn",
+		"exp":     exp,
+		"aud":     make([]string, 0),
+	}))
+	if _, err := j.Validate(token); err == nil {
+		t.Errorf("validated token with invalid list aud")
+	}
+
+	token = signTokenForTesting(jwt.SigningMethodHS256, key, jwt.MapClaims(map[string]any{
+		"account": "slingamn",
+		"exp":     exp,
+		"aud":     []int{1, 2},
+	}))
+	if _, err := j.Validate(token); err == nil {
+		t.Errorf("validated token with invalid list aud")
 	}
 }

@@ -177,6 +177,15 @@ func (j *JWTAuthTokenConfig) validateAudClaim(claims jwt.MapClaims) bool {
 	switch aud := audClaim.(type) {
 	case string:
 		return j.allowedAuds.Has(aud)
+	case []any:
+		for _, a := range aud {
+			if aStr, ok := a.(string); ok {
+				if j.allowedAuds.Has(aStr) {
+					return true
+				}
+			}
+		}
+		return false
 	case []string:
 		for _, a := range aud {
 			if j.allowedAuds.Has(a) {
