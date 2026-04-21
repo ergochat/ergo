@@ -1805,6 +1805,9 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if err = config.AuthToken.Postprocess(); err != nil {
 		return nil, err
 	}
+	if !config.AuthToken.Enabled {
+		config.Server.supportedCaps.Disable(caps.AuthToken)
+	}
 
 	if config.WebPush.Enabled {
 		if config.Accounts.Multiclient.AlwaysOn == PersistentDisabled {

@@ -3853,12 +3853,12 @@ func tokenGenerateHandler(server *Server, config *Config, client *Client, msg ir
 	}
 	details := client.Details()
 	if details.account == "" {
-		rb.Add(nil, server.name, "FAIL", "TOKEN", "ACCOUNT_REQUIRED", "GENERATE", client.t("You must be logged into an account to issue a token"))
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "ACCOUNT_REQUIRED", client.t("You must be logged into an account to issue a token"))
 		return
 	}
 	if details.nick != details.accountName {
 		// [evil laugh]
-		rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "GENERATE", client.t("You must use your account name as your nickname to issue a token"))
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", client.t("You must use your account name as your nickname to issue a token"))
 		return
 	}
 	claims := jwt.AuthToken{
@@ -3978,10 +3978,6 @@ func performTokenValidate(server *Server, config *Config, client *Client, servic
 		rb.Add(nil, server.name, "TOKEN", "CLAIM", "scope", claims.Scope)
 	}
 
-	defer func() {
-		rb.Add(nil, server.name, "NOTE", "TOKEN", "END_OF_LIST", client.t("End of claims list"))
-	}()
-
 	var memberOf, operatorOf utils.TokenLineBuilder
 	memberOf.Initialize(300, " ")
 	operatorOf.Initialize(300, " ")
@@ -3995,7 +3991,13 @@ func performTokenValidate(server *Server, config *Config, client *Client, servic
 	}
 
 	playMultilineClaim := func(claim string, lines []string) {
-		for _, line := range lines {
+		for i, line := range lines {
+			if i != 0 {
+				// "The server produces a leading space in the second line of
+				// the member_of claim because the client must concatenate the lines
+				// together with no separators."
+				line = " " + line
+			}
 			rb.Add(nil, server.name, "TOKEN", "CLAIM", claim, line)
 		}
 	}
