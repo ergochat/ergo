@@ -3812,13 +3812,13 @@ func tokenHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respon
 	switch strings.ToUpper(msg.Params[0]) {
 	case "SERVICELIST":
 		if !client.registered {
-			rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "SERVICELIST", client.t("You must complete connection registration to list services"))
+			rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "*", client.t("You must complete connection registration to list services"))
 			return false
 		}
 		tokenServicelistHandler(server, config, client, msg, rb)
 	case "GENERATE":
 		if !client.registered {
-			rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "GENERATE", client.t("You must complete connection registration to issue a token"))
+			rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "*", client.t("You must complete connection registration to issue a token"))
 			return false
 		}
 		tokenGenerateHandler(server, config, client, msg, rb)
@@ -3839,7 +3839,7 @@ func tokenServicelistHandler(server *Server, config *Config, client *Client, msg
 
 func tokenGenerateHandler(server *Server, config *Config, client *Client, msg ircmsg.Message, rb *ResponseBuffer) {
 	if !rb.session.capabilities.Has(caps.Batch) {
-		rb.Add(nil, server.name, "FAIL", "TOKEN", "NEED_CAPABILITY", "GENERATE", client.t("TOKEN GENERATE requires the batch capability"))
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "NEED_CAPABILITY", "batch", client.t("TOKEN GENERATE requires the batch capability"))
 		return
 	}
 	if len(msg.Params) < 2 {
@@ -3876,11 +3876,11 @@ func tokenGenerateHandler(server *Server, config *Config, client *Client, msg ir
 	if err != nil {
 		switch err {
 		case jwt.ErrNoService:
-			rb.Add(nil, server.name, "FAIL", "TOKEN", "UNKNOWN_SERVICE", "GENERATE", client.t("Unknown service"))
+			rb.Add(nil, server.name, "FAIL", "TOKEN", "UNKNOWN_SERVICE", utils.SafeErrorParam(service), client.t("Unknown service"))
 		default:
 			// unexpected
 			server.logger.Error("internal", "failed to issue AUTHTOKEN", err.Error())
-			rb.Add(nil, server.name, "FAIL", "TOKEN", "INTERNAL_ERROR", "GENERATE", client.t("An error occurred"))
+			rb.Add(nil, server.name, "FAIL", "TOKEN", "INTERNAL_ERROR", client.t("An error occurred"))
 		}
 		return
 	}
@@ -3903,11 +3903,11 @@ func tokenGenerateHandler(server *Server, config *Config, client *Client, msg ir
 // PASS requirement or similar.
 func tokenValidateCheckPermissions(server *Server, config *Config, client *Client, rb *ResponseBuffer) bool {
 	if !config.AuthToken.Enabled {
-		rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "VALIDATE", client.t("Auth tokens are disabled"))
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "*", client.t("TOKEN is disabled"))
 		return false
 	}
 	if !config.AuthToken.AllowIP(client.IP()) {
-		rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "VALIDATE", client.t("Your IP address is not allowed to validate auth tokens"))
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "*", client.t("Your IP address is not allowed to validate auth tokens"))
 		return false
 	}
 	return true
@@ -3915,7 +3915,7 @@ func tokenValidateCheckPermissions(server *Server, config *Config, client *Clien
 
 func tokenValidateHandler(server *Server, config *Config, client *Client, msg ircmsg.Message, rb *ResponseBuffer) {
 	if !rb.session.capabilities.Has(caps.Batch) {
-		rb.Add(nil, server.name, "FAIL", "TOKEN", "NEED_CAPABILITY", "VALIDATE", client.t("TOKEN VALIDATE requires the batch capability"))
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "NEED_CAPABILITY", "batch", client.t("TOKEN VALIDATE requires the batch capability"))
 		return
 	}
 
@@ -3932,7 +3932,7 @@ func tokenValidateHandler(server *Server, config *Config, client *Client, msg ir
 				// success, absorb into batch and wait for batch end
 				rb.session.tokenValidateBatch.buf.WriteString(tokenChunk)
 			} else {
-				rb.Add(nil, server.name, "FAIL", "TOKEN", "INVALID_TOKEN", "VALIDATE", client.t("Token exceeds maximum allowable length"))
+				rb.Add(nil, server.name, "FAIL", "TOKEN", "INVALID_TOKEN", client.t("Token exceeds maximum allowable length"))
 				rb.session.tokenValidateBatch = nil
 			}
 		}
@@ -3955,7 +3955,7 @@ func tokenValidateHandler(server *Server, config *Config, client *Client, msg ir
 func performTokenValidate(server *Server, config *Config, client *Client, service, url, token string, rb *ResponseBuffer) {
 	claims, err := config.AuthToken.Verify(service, url, token)
 	if err != nil {
-		rb.Add(nil, server.name, "FAIL", "TOKEN", "INVALID_TOKEN", "VALIDATE", client.t("Invalid token"))
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "INVALID_TOKEN", client.t("Invalid token"))
 		return
 	}
 
@@ -3965,7 +3965,7 @@ func performTokenValidate(server *Server, config *Config, client *Client, servic
 		// in one of several possible ways (force-nick-equals-account is off, or even
 		// strict nickname reservation is off), in which case we are going to refuse
 		// to validate any claims
-		rb.Add(nil, server.name, "FAIL", "TOKEN", "INVALID_TOKEN", "VALIDATE", client.t("Could not verify user presence"))
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "INVALID_TOKEN", client.t("Could not verify user presence"))
 		return
 	}
 
