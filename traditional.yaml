@@ -1002,11 +1002,11 @@ extjwt:
     # # expiration time for the token:
     # expiration: 45s
     # algorithm: "hmac" # either 'hmac', 'rsa', or 'eddsa' (ed25519)
-    # # hmac takes a symmetric key, rsa and eddsa take PEM-encoded public keys;
+    # # hmac takes a symmetric key, rsa and eddsa take PEM-encoded private keys;
     # # either way, the key can be specified either as a YAML string:
     # key: "nANiZ1De4v6WnltCHN2H7Q"
     # # or as a path to the file containing the key:
-    # #key-file: "jwt_pubkey.pem"
+    # #key-file: "jwt_privkey.pem"
 
     # # named services (for `EXTJWT #channel service_name`):
     # services:
