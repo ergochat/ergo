@@ -3978,12 +3978,8 @@ func performTokenValidate(server *Server, config *Config, client *Client, servic
 	}
 
 	playMultilineClaim := func(claim string, lines []string) {
-		for i, line := range lines {
-			if i < len(lines)-1 {
-				rb.Add(nil, server.name, "TOKEN", "CLAIM", claim, "*", line)
-			} else {
-				rb.Add(nil, server.name, "TOKEN", "CLAIM", claim, line)
-			}
+		for _, line := range lines {
+			rb.Add(nil, server.name, "TOKEN", "CLAIM", claim, line)
 		}
 	}
 	playMultilineClaim("member_of", memberOf.Lines())
