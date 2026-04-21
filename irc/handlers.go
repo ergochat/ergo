@@ -3806,15 +3806,14 @@ func tokenGenerateHandler(server *Server, config *Config, client *Client, msg ir
 		return
 	}
 
-	const tokenChunkLength = 300
-	for i := 0; i < len(token); i += 300 {
-		end := min(len(token), i+300)
+	const tokenChunkLength = 350
+	srvConf := config.AuthToken.Services[service] // we already validated the service name
+	batchID := rb.StartNestedBatch(nil, caps.AuthTokenBatchName, service, srvConf.URL)
+	defer rb.EndNestedBatch(batchID)
+	for i := 0; i < len(token); i += tokenChunkLength {
+		end := min(len(token), i+tokenChunkLength)
 		chunk := token[i:end]
-		if end < len(token) {
-			rb.Add(nil, server.name, "TOKEN", service, "*", chunk)
-		} else {
-			rb.Add(nil, server.name, "TOKEN", service, chunk)
-		}
+		rb.Add(nil, server.name, "TOKEN", "GENERATE", "*", "*", chunk)
 	}
 }
 
