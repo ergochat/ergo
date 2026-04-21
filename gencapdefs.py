@@ -243,6 +243,13 @@ CAPDEFS = [
         url="https://ircv3.net/specs/extensions/metadata",
         standard="draft IRCv3",
     ),
+    CapDef(
+        identifier="AuthToken",
+        name="draft/authtoken",
+        url="https://github.com/ircv3/ircv3-specifications/pull/602",
+        standard="proposed IRCv3",
+    ),
+
 
 ]
 
