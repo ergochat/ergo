@@ -3904,15 +3904,14 @@ func tokenValidateHandler(server *Server, config *Config, client *Client, msg ir
 		rb.Add(nil, server.name, "FAIL", "TOKEN", "NEED_CAPABILITY", "VALIDATE", client.t("TOKEN VALIDATE requires the batch capability"))
 		return
 	}
-	if len(msg.Params) < 4 {
-		rb.Add(nil, server.name, "FAIL", "TOKEN", "INVALID_PARAMS", "VALIDATE", client.t("Insufficient parameters"))
-		return
-	}
 
-	service, url, tokenChunk := msg.Params[1], msg.Params[2], msg.Params[3]
-
-	// batch case
+	// batch case, one parameter per TOKEN VALIDATE line (the token chunk)
 	if present, batchLabel := msg.GetTag("batch"); present {
+		if len(msg.Params) < 2 {
+			rb.Add(nil, server.name, "FAIL", "TOKEN", "INVALID_PARAMS", "VALIDATE", client.t("Insufficient parameters"))
+			return
+		}
+		tokenChunk := msg.Params[1]
 		if rb.session.tokenValidateBatch != nil && rb.session.tokenValidateBatch.label == batchLabel {
 			newLen := rb.session.tokenValidateBatch.buf.Len() + len(tokenChunk)
 			if newLen <= jwt.MaxAuthTokenLength {
@@ -3926,13 +3925,18 @@ func tokenValidateHandler(server *Server, config *Config, client *Client, msg ir
 		return
 	}
 
-	// single command case
+	// single command case, 3 parameters per TOKEN VALIDATE line (service, URL, token chunk)
 	if !config.AuthToken.AllowIP(client.IP()) {
 		rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "VALIDATE", client.t("Your IP address is not allowed to validate auth tokens"))
 		return
 	}
 
-	performTokenValidate(server, server.Config(), client, service, url, tokenChunk, rb)
+	if len(msg.Params) < 4 {
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "INVALID_PARAMS", "VALIDATE", client.t("Insufficient parameters"))
+		return
+	}
+
+	performTokenValidate(server, server.Config(), client, msg.Params[1], msg.Params[2], msg.Params[3], rb)
 }
 
 func performTokenValidate(server *Server, config *Config, client *Client, service, url, token string, rb *ResponseBuffer) {
