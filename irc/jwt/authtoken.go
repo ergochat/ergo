@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ergochat/ergo/irc/utils"
+
 	jwt "github.com/golang-jwt/jwt/v5"
 )
 
@@ -36,6 +37,7 @@ type AuthTokensConfig struct {
 type AuthToken struct {
 	ServerName  string
 	Service     string
+	URL         string
 	AccountName string
 	Scope       string
 	ChannelMode string
@@ -98,11 +100,10 @@ func (t *AuthTokensConfig) Issue(token AuthToken) (result string, err error) {
 	// standard claims:
 	claims["iss"] = token.ServerName
 	claims["exp"] = time.Now().Unix() + int64(conf.Expiration/time.Second)
-	// aud is probably a waste of bits for our use case, but the spec says we should publish it
 	claims["aud"] = conf.URL
 	// ergo-specific claims
 	claims["srv"] = service
-	claims["account"] = token.AccountName
+	claims["acc"] = token.AccountName
 	if token.Scope != "" {
 		claims["scope"] = token.Scope
 	}
@@ -115,24 +116,14 @@ func (t *AuthTokensConfig) Issue(token AuthToken) (result string, err error) {
 	return j.SignedString(conf.signingKey)
 }
 
-func (t *AuthTokensConfig) Verify(token string) (result AuthToken, err error) {
-	var conf JwtServiceConfig
-
-	// parse the token; extract the unvalidated srv claim; retrieve the corresponding
-	// JWT service definition and verify the signature against the defined key
-	tok, err := parser.Parse(token, func(tok *jwt.Token) (key any, err error) {
-		srvClaim := tok.Claims.(jwt.MapClaims)["srv"] // Parse always returns a MapClaims
-		if serviceName, ok := srvClaim.(string); ok {
-			conf, err = t.getService(serviceName)
-			if err == nil {
-				return conf.verifyKey, nil
-			} else {
-				return nil, err
-			}
-		} else {
-			return nil, ErrInvalidToken
-		}
-	})
+func (t *AuthTokensConfig) Verify(service, url, token string) (result AuthToken, err error) {
+	service = strings.ToUpper(service)
+	conf, err := t.getService(service)
+	if err != nil {
+		return
+	}
+	// since we looked up the service, we now know the correct signing key
+	tok, err := parser.Parse(token, conf.verifyKeyFunc)
 	if err != nil {
 		return
 	}
@@ -145,19 +136,33 @@ func (t *AuthTokensConfig) Verify(token string) (result AuthToken, err error) {
 	}
 
 	mc := tok.Claims.(jwt.MapClaims)
-	extractStringClaim := func(claims jwt.MapClaims, key string) string {
-		if result, ok := claims[key]; ok {
-			if strResult, ok := result.(string); ok {
-				return strResult
-			}
-		}
-		return ""
+
+	srvClaim := extractStringClaim(mc, "srv")
+	if service != srvClaim {
+		err = ErrInvalidToken
+		return
 	}
+	audClaim := extractStringClaim(mc, "aud")
+	if url != audClaim {
+		err = ErrInvalidToken
+		return
+	}
+
 	return AuthToken{
-		// don't care about ServerName
-		Service:     extractStringClaim(mc, "srv"),
-		AccountName: extractStringClaim(mc, "account"),
+		// don't care about iss / ServerName
+		Service:     srvClaim,
+		URL:         audClaim,
+		AccountName: extractStringClaim(mc, "acc"),
 		Scope:       extractStringClaim(mc, "scope"),
 		// don't return channel mode, revalidate it from runtime data
 	}, nil
+}
+
+func extractStringClaim(claims jwt.MapClaims, key string) string {
+	if result, ok := claims[key]; ok {
+		if strResult, ok := result.(string); ok {
+			return strResult
+		}
+	}
+	return ""
 }

@@ -88,6 +88,10 @@ func (t *JwtServiceConfig) Enabled() bool {
 	return t.Expiration != 0 && t.signingMethod != nil
 }
 
+func (t *JwtServiceConfig) verifyKeyFunc(_ *jwt.Token) (key any, err error) {
+	return t.verifyKey, nil
+}
+
 func (t *JwtServiceConfig) SignEXTJWT(claims MapClaims) (result string, err error) {
 	if !t.Enabled() {
 		err = ErrNoKeys

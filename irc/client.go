@@ -214,14 +214,14 @@ type Session struct {
 	zncPlaybackTimes      *zncPlaybackTimes
 	autoreplayMissedSince time.Time
 
-	batch MultilineBatch
+	multilineBatch MultilineBatch
 
 	webPushEndpoint string // goroutine-local: web push endpoint registered by the current session
 
 	metadataSubscriptions utils.HashSet[string]
 	metadataPreregVals    map[string]string
 
-	authTokenBuffer []byte // goroutine-local: TOKEN VALIDATE buffer
+	tokenValidateBatch *TokenValidateBatch
 }
 
 // MultilineBatch tracks the state of a client-to-server multiline batch.
@@ -235,13 +235,21 @@ type MultilineBatch struct {
 	tags          map[string]string
 }
 
+type TokenValidateBatch struct {
+	label         string
+	responseLabel string
+	service       string
+	url           string
+	buf           strings.Builder
+}
+
 // Starts a multiline batch, failing if there's one already open
 func (s *Session) StartMultilineBatch(label, target, responseLabel string, tags map[string]string) (err error) {
-	if s.batch.label != "" {
+	if s.multilineBatch.label != "" {
 		return errInvalidMultilineBatch
 	}
 
-	s.batch.label, s.batch.target, s.batch.responseLabel, s.batch.tags = label, target, responseLabel, tags
+	s.multilineBatch.label, s.multilineBatch.target, s.multilineBatch.responseLabel, s.multilineBatch.tags = label, target, responseLabel, tags
 	s.fakelag.Suspend()
 	return
 }
@@ -249,8 +257,8 @@ func (s *Session) StartMultilineBatch(label, target, responseLabel string, tags 
 // Closes a multiline batch unconditionally; returns the batch and whether
 // it was validly terminated (pass "" as the label if you don't care about the batch)
 func (s *Session) EndMultilineBatch(label string) (batch MultilineBatch, err error) {
-	batch = s.batch
-	s.batch = MultilineBatch{}
+	batch = s.multilineBatch
+	s.multilineBatch = MultilineBatch{}
 	s.fakelag.Unsuspend()
 
 	// heuristics to estimate how much data they used while fakelag was suspended

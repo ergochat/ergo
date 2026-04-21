@@ -51,7 +51,7 @@ s/uzBKNwWf9UPTeIt+4JScg=
 func TestJWTBearerAuth(t *testing.T) {
 	j := JWTAuthConfig{
 		Enabled: true,
-		Tokens: []JWTAuthTokenConfig{
+		Tokens: []JWTBearerTokenConfig{
 			{
 				Algorithm:     "rsa",
 				KeyString:     rsaTestPubKey,
@@ -135,7 +135,7 @@ func TestJWTBearerAudValidation(t *testing.T) {
 	key := []byte("MowTTyXKkN58DG2uNMsoCgAa6CM6ElFlcq_7Ocl6wsU")
 	j := JWTAuthConfig{
 		Enabled: true,
-		Tokens: []JWTAuthTokenConfig{
+		Tokens: []JWTBearerTokenConfig{
 			{
 				Algorithm:     "hmac",
 				KeyString:     string(key),

@@ -1948,7 +1948,7 @@ func (config *Config) generateISupport() (err error) {
 	}
 
 	if config.AuthToken.Enabled {
-		isupport.Add("draft/AUTHTOKEN", "")
+		isupport.Add(caps.AuthToken005, "")
 	}
 
 	for key, value := range config.Server.AdditionalISupport {

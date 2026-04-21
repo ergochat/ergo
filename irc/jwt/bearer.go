@@ -20,12 +20,12 @@ var (
 
 // JWTAuthConfig is the config for Ergo to accept JWTs via draft/bearer
 type JWTAuthConfig struct {
-	Enabled    bool                 `yaml:"enabled"`
-	Autocreate bool                 `yaml:"autocreate"`
-	Tokens     []JWTAuthTokenConfig `yaml:"tokens"`
+	Enabled    bool                   `yaml:"enabled"`
+	Autocreate bool                   `yaml:"autocreate"`
+	Tokens     []JWTBearerTokenConfig `yaml:"tokens"`
 }
 
-type JWTAuthTokenConfig struct {
+type JWTBearerTokenConfig struct {
 	Algorithm     string `yaml:"algorithm"`
 	KeyString     string `yaml:"key"`
 	KeyFile       string `yaml:"key-file"`
@@ -55,7 +55,7 @@ func (j *JWTAuthConfig) Postprocess() error {
 	return nil
 }
 
-func (j *JWTAuthTokenConfig) Postprocess() error {
+func (j *JWTBearerTokenConfig) Postprocess() error {
 	keyBytes, err := j.keyBytes()
 	if err != nil {
 		return err
@@ -114,7 +114,7 @@ func (j *JWTAuthConfig) Validate(t string) (accountName string, err error) {
 	return
 }
 
-func (j *JWTAuthTokenConfig) keyBytes() (result []byte, err error) {
+func (j *JWTBearerTokenConfig) keyBytes() (result []byte, err error) {
 	if j.KeyFile != "" {
 		return os.ReadFile(j.KeyFile)
 	}
@@ -125,11 +125,11 @@ func (j *JWTAuthTokenConfig) keyBytes() (result []byte, err error) {
 }
 
 // implements jwt.Keyfunc
-func (j *JWTAuthTokenConfig) keyFunc(_ *jwt.Token) (interface{}, error) {
+func (j *JWTBearerTokenConfig) keyFunc(_ *jwt.Token) (interface{}, error) {
 	return j.key, nil
 }
 
-func (j *JWTAuthTokenConfig) Validate(t string) (accountName string, err error) {
+func (j *JWTBearerTokenConfig) Validate(t string) (accountName string, err error) {
 	token, err := j.parser.Parse(t, j.keyFunc)
 	if err != nil {
 		return "", err
@@ -164,7 +164,7 @@ func (j *JWTAuthTokenConfig) Validate(t string) (accountName string, err error) 
 	return "", ErrNoValidAccountClaim
 }
 
-func (j *JWTAuthTokenConfig) validateAudClaim(claims jwt.MapClaims) bool {
+func (j *JWTBearerTokenConfig) validateAudClaim(claims jwt.MapClaims) bool {
 	if j.allowedAuds == nil {
 		return true // no validate-aud means any aud is allowed
 	}
