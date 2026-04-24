@@ -514,6 +514,9 @@ func (server *Server) playRegistrationBurst(session *Session) {
 	if d.account != "" && session.capabilities.Has(caps.Persistence) {
 		reportPersistenceStatus(c, rb, false)
 	}
+	if session.capabilities.Has(caps.AuthToken) {
+		tokenServicelistHandler(server, config, c, rb)
+	}
 	server.Lusers(c, rb)
 	server.MOTD(c, rb)
 	rb.Send(true)

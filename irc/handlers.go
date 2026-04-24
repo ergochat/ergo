@@ -3815,7 +3815,7 @@ func tokenHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respon
 			rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "*", client.t("You must complete connection registration to list services"))
 			return false
 		}
-		tokenServicelistHandler(server, config, client, msg, rb)
+		tokenServicelistHandler(server, config, client, rb)
 	case "GENERATE":
 		if !client.registered {
 			rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "*", client.t("You must complete connection registration to issue a token"))
@@ -3830,11 +3830,16 @@ func tokenHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respon
 	return false
 }
 
-func tokenServicelistHandler(server *Server, config *Config, client *Client, msg ircmsg.Message, rb *ResponseBuffer) {
-	for srv, conf := range config.AuthToken.Services {
-		rb.Add(nil, server.name, "NOTE", "TOKEN", "SERVICE", srv, conf.URL, conf.Description)
+func tokenServicelistHandler(server *Server, config *Config, client *Client, rb *ResponseBuffer) {
+	if len(config.AuthToken.Services) == 0 {
+		rb.Add(nil, server.name, "NOTE", "TOKEN", "NO_SERVICES", client.t("No services are defined for this network"))
+		return
 	}
-	rb.Add(nil, server.name, "NOTE", "TOKEN", "END_OF_LIST", client.t("End of service list"))
+	batchID := rb.StartNestedBatch(nil, caps.AuthTokenBatchType, "*", "*")
+	defer rb.EndNestedBatch(batchID)
+	for srv, conf := range config.AuthToken.Services {
+		rb.Add(nil, server.name, "TOKEN", "SERVICE", srv, conf.URL, conf.Description)
+	}
 }
 
 func tokenGenerateHandler(server *Server, config *Config, client *Client, msg ircmsg.Message, rb *ResponseBuffer) {
