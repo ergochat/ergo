@@ -2402,10 +2402,11 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 		lowercaseTarget := strings.ToLower(target)
 		service, isService := ErgoServices[lowercaseTarget]
 		_, isZNC := zncHandlers[lowercaseTarget]
+		isBot := client.HasMode(modes.Bot)
 
 		if isService || isZNC {
 			details := client.Details()
-			rb.addEchoMessage(tags, details.nickMask, details.accountName, command, target, message)
+			rb.addEchoMessage(tags, details.nickMask, details.accountName, command, target, message, isBot)
 			if histType != history.Privmsg {
 				return // NOTICE and TAGMSG to services are ignored
 			}
@@ -2466,7 +2467,6 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 			}
 		}
 
-		isBot := client.HasMode(modes.Bot)
 		for _, session := range deliverySessions {
 			hasTagsCap := session.capabilities.Has(caps.MessageTags)
 			// don't send TAGMSG at all if they don't have the tags cap
@@ -2482,7 +2482,7 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 		}
 
 		// the originating session may get an echo message:
-		rb.addEchoMessage(tags, nickMaskString, accountName, command, tnick, message)
+		rb.addEchoMessage(tags, nickMaskString, accountName, command, tnick, message, isBot)
 		if histType == history.Privmsg {
 			//TODO(dan): possibly implement cooldown of away notifications to users
 			if away, awayMessage := user.Away(); away {
@@ -2498,6 +2498,7 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 			Type:    histType,
 			Message: message,
 			Tags:    tags,
+			IsBot:   isBot,
 		}
 		client.addHistoryItem(user, item, &details, &tDetails, config)
 

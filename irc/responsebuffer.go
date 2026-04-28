@@ -148,20 +148,19 @@ func (rb *ResponseBuffer) AddSplitMessageFromClient(fromNickMask string, fromAcc
 	}
 }
 
-func (rb *ResponseBuffer) addEchoMessage(tags map[string]string, nickMask, accountName, command, target string, message utils.SplitMessage) {
-	// TODO fix isBot here
+func (rb *ResponseBuffer) addEchoMessage(tags map[string]string, nickMask, accountName, command, target string, message utils.SplitMessage, isBot bool) {
 	if rb.session.capabilities.Has(caps.EchoMessage) {
 		hasTagsCap := rb.session.capabilities.Has(caps.MessageTags)
 		if command == "TAGMSG" {
 			if hasTagsCap {
-				rb.AddFromClient(message.Time, message.Msgid, nickMask, accountName, false, tags, command, target)
+				rb.AddFromClient(message.Time, message.Msgid, nickMask, accountName, isBot, tags, command, target)
 			}
 		} else {
 			tagsToSend := tags
 			if !hasTagsCap {
 				tagsToSend = nil
 			}
-			rb.AddSplitMessageFromClient(nickMask, accountName, false, tagsToSend, command, target, message)
+			rb.AddSplitMessageFromClient(nickMask, accountName, isBot, tagsToSend, command, target, message)
 		}
 	}
 }

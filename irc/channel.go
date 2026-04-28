@@ -1368,7 +1368,7 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 	}
 
 	// send echo-message
-	rb.addEchoMessage(clientOnlyTags, details.nickMask, details.accountName, command, chname, message)
+	rb.addEchoMessage(clientOnlyTags, details.nickMask, details.accountName, command, chname, message, isBot)
 
 	var cache MessageCache
 	cache.InitializeSplitMessage(channel.server, details.nickMask, details.accountName, isBot, clientOnlyTags, command, chname, message)
