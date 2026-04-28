@@ -291,6 +291,8 @@ server:
         # constant list of args to pass to the command; the actual query
         # and result are transmitted over stdin/stdout:
         args: []
+        # alternatively, pass the input to a persistent process over unix domain socket:
+        #socket: "/tmp/ergo_ip_check_sidecar"
         # timeout for process execution, after which we send a SIGTERM:
         timeout: 9s
         # how long after the SIGTERM before we follow up with a SIGKILL:
@@ -589,6 +591,8 @@ accounts:
         # constant list of args to pass to the command; the actual authentication
         # data is transmitted over stdin/stdout:
         args: []
+        # alternatively, pass the input to a persistent process over unix domain socket:
+        #socket: "/tmp/ergo_auth_sidecar"
         # should we automatically create users if the plugin returns success?
         autocreate: true
         # timeout for process execution, after which we send a SIGTERM:
@@ -631,6 +635,9 @@ accounts:
                 # if a claim is formatted as an email address, require it to have the following domain,
                 # and then strip off the domain and use the local-part as the account name:
                 #strip-domain: "example.com"
+                # optional list of `aud` claims that are acceptable
+                # (if omitted, the aud claim is not validated):
+                #validate-aud: ["irc.mydomain.com"]
 
 # channel options
 channels:
@@ -994,16 +1001,34 @@ extjwt:
     # # default service config (for `EXTJWT #channel`).
     # # expiration time for the token:
     # expiration: 45s
-    # # you can configure tokens to be signed either with HMAC and a symmetric secret:
-    # secret: "65PHvk0K1_sM-raTsCEhatVkER_QD8a0zVV8gG2EWcI"
-    # # or with an RSA private key:
-    # #rsa-private-key-file: "extjwt.pem"
+    # algorithm: "hmac" # either 'hmac', 'rsa', or 'eddsa' (ed25519)
+    # # hmac takes a symmetric key, rsa and eddsa take PEM-encoded private keys;
+    # # either way, the key can be specified either as a YAML string:
+    # key: "nANiZ1De4v6WnltCHN2H7Q"
+    # # or as a path to the file containing the key:
+    # #key-file: "jwt_privkey.pem"
 
     # # named services (for `EXTJWT #channel service_name`):
     # services:
     #     "jitsi":
     #         expiration: 30s
-    #         secret: "qmamLKDuOzIzlO8XqsGGewei_At11lewh6jtKfSTbkg"
+    #         algorithm: "hmac"
+    #         key: "qmamLKDuOzIzlO8XqsGGewei_At11lewh6jtKfSTbkg"
+
+# experimental draft/AUTHTOKEN mechanism
+authtoken:
+    enabled: false
+
+    # only these IPs can verify tokens
+    verification-ip-whitelist:
+        - "localhost"
+
+    #services:
+    #   "FILEHOST":
+    #       expiration: 5m
+    #       url: "https://example.com/filehost"
+    #       algorithm: "eddsa"
+    #       key: "-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIHfpO1x835o9NIQA1kBkN7/Myd6wqE/m/EYJUHBC18hW\n-----END PRIVATE KEY-----"
 
 # history message storage: this is used by CHATHISTORY, HISTORY, znc.in/playback,
 # various autoreplay features, and the resume extension

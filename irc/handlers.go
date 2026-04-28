@@ -548,11 +548,40 @@ func dispatchAwayNotify(client *Client, awayMessage string) {
 // BATCH {+,-}reference-tag type [params...]
 func batchHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	tag := msg.Params[0]
+	if len(tag) != 0 {
+		switch tag[0] {
+		case '+':
+			// can't open a new C2S batch with one already open, even of a different type
+			if rb.session.multilineBatch.label == "" && rb.session.tokenValidateBatch == nil {
+				if len(msg.Params) >= 2 {
+					switch msg.Params[1] {
+					case caps.MultilineBatchType:
+						return batchHandlerMultiline(server, client, msg, rb)
+					case caps.AuthTokenBatchType:
+						return batchHandlerTokenStart(server, client, msg, rb)
+					}
+				}
+			}
+		case '-':
+			if rb.session.multilineBatch.label != "" {
+				return batchHandlerMultiline(server, client, msg, rb)
+			} else if rb.session.tokenValidateBatch != nil {
+				return batchHandlerTokenEnd(server, client, msg, rb)
+			}
+		}
+	}
+	failBatch(server, rb)
+	// reset any local state
+	rb.session.EndMultilineBatch("")
+	rb.session.tokenValidateBatch = nil
+	return false
+}
+
+func batchHandlerMultiline(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
+	tag := msg.Params[0]
 	fail := false
-	sendErrors := rb.session.batch.command != "NOTICE"
-	if len(tag) == 0 {
-		fail = true
-	} else if tag[0] == '+' {
+	sendErrors := rb.session.multilineBatch.command != "NOTICE"
+	if tag[0] == '+' {
 		if len(msg.Params) < 3 || msg.Params[1] != caps.MultilineBatchType {
 			fail = true
 		} else {
@@ -586,6 +615,50 @@ func batchHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respon
 		}
 	}
 
+	return false
+}
+
+func batchHandlerTokenStart(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
+	if rb.session.tokenValidateBatch == nil {
+		if !tokenValidateCheckPermissions(server, server.Config(), client, rb) {
+			return false
+		}
+		if len(msg.Params) < 4 {
+			failBatch(server, rb)
+			return false
+		}
+		rb.session.tokenValidateBatch = &TokenValidateBatch{
+			label:         msg.Params[0][1:],
+			responseLabel: rb.Label,
+			service:       msg.Params[2],
+			url:           msg.Params[3],
+		}
+		rb.Label = "" // suppress ACK for initial BATCH line
+	} else {
+		rb.session.tokenValidateBatch = nil
+		failBatch(server, rb)
+	}
+	return false
+}
+
+func batchHandlerTokenEnd(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
+	tokenValidateBatch := rb.session.tokenValidateBatch
+	rb.session.tokenValidateBatch = nil
+
+	if tokenValidateBatch == nil {
+		return failBatch(server, rb)
+	}
+	if tokenValidateBatch.label != msg.Params[0][1:] {
+		return failBatch(server, rb)
+	}
+
+	rb.Label = tokenValidateBatch.responseLabel
+	performTokenValidate(server, server.Config(), client, tokenValidateBatch.service, tokenValidateBatch.url, tokenValidateBatch.buf.String(), rb)
+	return false
+}
+
+func failBatch(server *Server, rb *ResponseBuffer) bool {
+	rb.Add(nil, server.name, "FAIL", "BATCH", "INVALID_PARAMS", "Corrupt BATCH")
 	return false
 }
 
@@ -1190,7 +1263,7 @@ func extjwtHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 		return false
 	}
 
-	tokenString, err := sConfig.Sign(claims)
+	tokenString, err := sConfig.SignEXTJWT(claims)
 
 	if err == nil {
 		maxTokenLength := maxLastArgLength
@@ -2261,32 +2334,32 @@ func absorbBatchedMessage(server *Server, client *Client, msg ircmsg.Message, ba
 		}
 	}()
 
-	if batchTag != rb.session.batch.label {
+	if batchTag != rb.session.multilineBatch.label {
 		failParams = []string{"MULTILINE_INVALID", client.t("Incorrect batch tag sent")}
 		return
 	} else if len(msg.Params) < 2 {
 		failParams = []string{"MULTILINE_INVALID", client.t("Invalid multiline batch")}
 		return
 	}
-	rb.session.batch.command = msg.Command
+	rb.session.multilineBatch.command = msg.Command
 	isConcat, _ := msg.GetTag(caps.MultilineConcatTag)
 	if isConcat && len(msg.Params[1]) == 0 {
 		failParams = []string{"MULTILINE_INVALID", client.t("Cannot send a blank line with the multiline concat tag")}
 		return
 	}
-	if !isConcat && len(rb.session.batch.message.Split) != 0 {
-		rb.session.batch.lenBytes++ // bill for the newline
+	if !isConcat && len(rb.session.multilineBatch.message.Split) != 0 {
+		rb.session.multilineBatch.lenBytes++ // bill for the newline
 	}
-	rb.session.batch.message.Append(msg.Params[1], isConcat)
-	rb.session.batch.lenBytes += len(msg.Params[1])
+	rb.session.multilineBatch.message.Append(msg.Params[1], isConcat)
+	rb.session.multilineBatch.lenBytes += len(msg.Params[1])
 	config := server.Config()
-	if config.Limits.Multiline.MaxBytes < rb.session.batch.lenBytes {
+	if config.Limits.Multiline.MaxBytes < rb.session.multilineBatch.lenBytes {
 		failParams = []string{
 			"MULTILINE_MAX_BYTES",
 			strconv.Itoa(config.Limits.Multiline.MaxBytes),
 			fmt.Sprintf(client.t("Multiline batch byte limit %d exceeded"), config.Limits.Multiline.MaxBytes),
 		}
-	} else if config.Limits.Multiline.MaxLines != 0 && config.Limits.Multiline.MaxLines < rb.session.batch.message.LenLines() {
+	} else if config.Limits.Multiline.MaxLines != 0 && config.Limits.Multiline.MaxLines < rb.session.multilineBatch.message.LenLines() {
 		failParams = []string{
 			"MULTILINE_MAX_LINES",
 			strconv.Itoa(config.Limits.Multiline.MaxLines),
@@ -3727,6 +3800,212 @@ func summonHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 func timeHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	rb.Add(nil, server.name, RPL_TIME, client.nick, server.name, time.Now().UTC().Format(time.RFC1123))
 	return false
+}
+
+// TOKEN
+func tokenHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
+	config := server.Config()
+	if !config.AuthToken.Enabled {
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "*", client.t("TOKEN is disabled"))
+		return false
+	}
+
+	switch strings.ToUpper(msg.Params[0]) {
+	case "SERVICELIST":
+		if !client.registered {
+			rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "*", client.t("You must complete connection registration to list services"))
+			return false
+		}
+		tokenServicelistHandler(server, config, client, msg, rb)
+	case "GENERATE":
+		if !client.registered {
+			rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "*", client.t("You must complete connection registration to issue a token"))
+			return false
+		}
+		tokenGenerateHandler(server, config, client, msg, rb)
+	case "VALIDATE":
+		tokenValidateHandler(server, config, client, msg, rb)
+	default:
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "UNKNOWN_COMMAND", utils.SafeErrorParam(msg.Params[0]), client.t("Unknown subcommand"))
+	}
+	return false
+}
+
+func tokenServicelistHandler(server *Server, config *Config, client *Client, msg ircmsg.Message, rb *ResponseBuffer) {
+	for srv, conf := range config.AuthToken.Services {
+		rb.Add(nil, server.name, "NOTE", "TOKEN", "SERVICE", srv, conf.URL, conf.Description)
+	}
+	rb.Add(nil, server.name, "NOTE", "TOKEN", "END_OF_LIST", client.t("End of service list"))
+}
+
+func tokenGenerateHandler(server *Server, config *Config, client *Client, msg ircmsg.Message, rb *ResponseBuffer) {
+	if !rb.session.capabilities.Has(caps.Batch) {
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "NEED_CAPABILITY", "batch", client.t("TOKEN GENERATE requires the batch capability"))
+		return
+	}
+	if len(msg.Params) < 2 {
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "INVALID_PARAMS", "GENERATE", client.t("Service is a required argument to TOKEN GENERATE"))
+		return
+	}
+	service := strings.ToUpper(msg.Params[1])
+	var scope string
+	if len(msg.Params) > 2 {
+		scope = msg.Params[2]
+	}
+	details := client.Details()
+	if details.account == "" {
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "ACCOUNT_REQUIRED", client.t("You must be logged into an account to issue a token"))
+		return
+	}
+	if details.nick != details.accountName {
+		// [evil laugh]
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", client.t("You must use your account name as your nickname to issue a token"))
+		return
+	}
+	claims := jwt.AuthToken{
+		ServerName:  server.name,
+		Service:     service,
+		Scope:       scope,
+		AccountName: details.accountName,
+	}
+	if channel := server.channels.Get(scope); channel != nil {
+		if m := channel.HighestUserMode(client); m != 0 {
+			claims.ChannelMode = string(m)
+		}
+	}
+	token, err := config.AuthToken.Issue(claims)
+	if err != nil {
+		switch err {
+		case jwt.ErrNoService:
+			rb.Add(nil, server.name, "FAIL", "TOKEN", "UNKNOWN_SERVICE", utils.SafeErrorParam(service), client.t("Unknown service"))
+		default:
+			// unexpected
+			server.logger.Error("internal", "failed to issue AUTHTOKEN", err.Error())
+			rb.Add(nil, server.name, "FAIL", "TOKEN", "INTERNAL_ERROR", client.t("An error occurred"))
+		}
+		return
+	}
+
+	const tokenChunkLength = 400
+	srvConf := config.AuthToken.Services[service] // we already validated the service name
+	// always send a batch; if we don't we have to try and fit service name, URL,
+	// and the entire token on the same line
+	batchID := rb.StartNestedBatch(nil, caps.AuthTokenBatchType, service, srvConf.URL)
+	defer rb.EndNestedBatch(batchID)
+	for i := 0; i < len(token); i += tokenChunkLength {
+		end := min(len(token), i+tokenChunkLength)
+		chunk := token[i:end]
+		rb.Add(nil, "", "TOKEN", "GENERATE", "*", "*", chunk)
+	}
+}
+
+// tokenValidateCheckPermissions is the check to allow a client to validate,
+// or start validating, an authtoken. we may eventually add an optional
+// PASS requirement or similar.
+func tokenValidateCheckPermissions(server *Server, config *Config, client *Client, rb *ResponseBuffer) bool {
+	if !config.AuthToken.Enabled {
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "*", client.t("TOKEN is disabled"))
+		return false
+	}
+	if !config.AuthToken.AllowIP(client.IP()) {
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "NO_PERMISSIONS", "*", client.t("Your IP address is not allowed to validate auth tokens"))
+		return false
+	}
+	return true
+}
+
+func tokenValidateHandler(server *Server, config *Config, client *Client, msg ircmsg.Message, rb *ResponseBuffer) {
+	if !rb.session.capabilities.Has(caps.Batch) {
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "NEED_CAPABILITY", "batch", client.t("TOKEN VALIDATE requires the batch capability"))
+		return
+	}
+
+	// batch case, one parameter per TOKEN VALIDATE line (the token chunk)
+	if present, batchLabel := msg.GetTag("batch"); present {
+		if len(msg.Params) < 2 {
+			rb.Add(nil, server.name, "FAIL", "TOKEN", "INVALID_PARAMS", "VALIDATE", client.t("Insufficient parameters"))
+			return
+		}
+		tokenChunk := msg.Params[1]
+		if rb.session.tokenValidateBatch != nil && rb.session.tokenValidateBatch.label == batchLabel {
+			newLen := rb.session.tokenValidateBatch.buf.Len() + len(tokenChunk)
+			if newLen <= jwt.MaxAuthTokenLength {
+				// success, absorb into batch and wait for batch end
+				rb.session.tokenValidateBatch.buf.WriteString(tokenChunk)
+			} else {
+				rb.Add(nil, server.name, "FAIL", "TOKEN", "INVALID_TOKEN", client.t("Token exceeds maximum allowable length"))
+				rb.session.tokenValidateBatch = nil
+			}
+		}
+		return
+	}
+
+	// single command case, 3 parameters per TOKEN VALIDATE line (service, URL, token chunk)
+	if !tokenValidateCheckPermissions(server, config, client, rb) {
+		return
+	}
+
+	if len(msg.Params) < 4 {
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "INVALID_PARAMS", "VALIDATE", client.t("Insufficient parameters"))
+		return
+	}
+
+	performTokenValidate(server, server.Config(), client, msg.Params[1], msg.Params[2], msg.Params[3], rb)
+}
+
+func performTokenValidate(server *Server, config *Config, client *Client, service, url, token string, rb *ResponseBuffer) {
+	claims, err := config.AuthToken.Verify(service, url, token)
+	if err != nil {
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "INVALID_TOKEN", client.t("Invalid token"))
+		return
+	}
+
+	subject := server.clients.Get(claims.AccountName)
+	if subject == nil || subject.AccountName() != claims.AccountName {
+		// the original issuing client is offline, or "nick equals account" is disabled
+		// in one of several possible ways (force-nick-equals-account is off, or even
+		// strict nickname reservation is off), in which case we are going to refuse
+		// to validate any claims
+		rb.Add(nil, server.name, "FAIL", "TOKEN", "INVALID_TOKEN", client.t("Could not verify user presence"))
+		return
+	}
+
+	batchID := rb.StartNestedBatch(nil, caps.AuthTokenBatchType, service, url)
+	defer rb.EndNestedBatch(batchID)
+
+	rb.Add(nil, server.name, "TOKEN", "CLAIM", "name", claims.AccountName)
+	rb.Add(nil, server.name, "TOKEN", "CLAIM", "account", claims.AccountName)
+	if claims.Scope != "" {
+		rb.Add(nil, server.name, "TOKEN", "CLAIM", "scope", claims.Scope)
+	}
+
+	var memberOf, operatorOf utils.TokenLineBuilder
+	memberOf.Initialize(300, " ")
+	operatorOf.Initialize(300, " ")
+
+	for _, channel := range subject.Channels() {
+		chname := channel.Name()
+		memberOf.Add(chname)
+		if channel.ClientIsAtLeast(subject, modes.ChannelOperator) {
+			operatorOf.Add(chname)
+		}
+	}
+
+	playMultilineClaim := func(claim string, lines []string) {
+		for i, line := range lines {
+			if i != 0 {
+				// "The server produces a leading space in the second line of
+				// the member_of claim because the client must concatenate the lines
+				// together with no separators."
+				line = " " + line
+			}
+			rb.Add(nil, server.name, "TOKEN", "CLAIM", claim, line)
+		}
+	}
+	playMultilineClaim("member_of", memberOf.Lines())
+	playMultilineClaim("operator_of", operatorOf.Lines())
+
+	return
 }
 
 // TOPIC <channel> [<topic>]
