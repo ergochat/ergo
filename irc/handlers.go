@@ -2498,6 +2498,7 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 			Type:    histType,
 			Message: message,
 			Tags:    tags,
+			IsBot:   isBot,
 		}
 		client.addHistoryItem(user, item, &details, &tDetails, config)
 
