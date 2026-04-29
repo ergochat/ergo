@@ -116,6 +116,15 @@ func playMetadataList(rb *ResponseBuffer, nick, target string, values map[string
 	}
 }
 
+func playMetadataClear(rb *ResponseBuffer, nick, target string, values map[string]string) {
+	batchId := rb.StartNestedBatch(nil, "metadata", target)
+	defer rb.EndNestedBatch(batchId)
+
+	for key := range values {
+		rb.Add(nil, rb.session.client.server.name, RPL_KEYNOTSET, nick, target, key, rb.session.client.t("Metadata value cleared"))
+	}
+}
+
 func playMetadataVerbBatch(rb *ResponseBuffer, target string, values map[string]string) {
 	batchId := rb.StartNestedBatch(nil, "metadata", target)
 	defer rb.EndNestedBatch(batchId)
