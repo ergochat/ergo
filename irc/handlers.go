@@ -3295,7 +3295,7 @@ func metadataRegisteredHandler(client *Client, config *Config, subcommand string
 
 		values := targetObj.ClearMetadata()
 
-		playMetadataList(rb, client.Nick(), target, values)
+		playMetadataClear(rb, client.Nick(), target, values)
 
 	case "get":
 		if !metadataCanISeeThisTarget(client, targetObj) {
