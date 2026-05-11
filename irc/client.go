@@ -1639,11 +1639,12 @@ func (session *Session) Notice(text string) {
 
 // `simulated` is for the fake join of an always-on client
 // (we just read the channel name from the database, there's no need to write it back)
-func (client *Client) addChannel(channel *Channel, simulated bool) (err error) {
+func (client *Client) addChannel(channel *Channel) (alwaysOn bool, err error) {
 	config := client.server.Config()
 
 	client.stateMutex.Lock()
-	alwaysOn := client.alwaysOn
+	defer client.stateMutex.Unlock()
+	alwaysOn = client.alwaysOn
 	if client.destroyed {
 		err = errClientDestroyed
 	} else if client.oper == nil && len(client.channels) >= config.Channels.MaxChannelsPerClient {
@@ -1651,11 +1652,8 @@ func (client *Client) addChannel(channel *Channel, simulated bool) (err error) {
 	} else {
 		client.channels.Add(channel) // success
 	}
-	client.stateMutex.Unlock()
-
-	if err == nil && alwaysOn && !simulated {
-		client.markDirty(IncludeChannels)
-	}
+	// XXX don't markDirty here; we need to wait for the change to go through
+	// on the channel side, so we can correctly record whatever mode was granted
 	return
 }
 
@@ -1967,8 +1965,11 @@ func (client *Client) performWrite(additionalDirtyBits uint) {
 }
 
 // Blocking store; see Channel.Store and Socket.BlockingWrite
-func (client *Client) Store(dirtyBits uint) (err error) {
+func (client *Client) Store(dirtyBits uint, shutdown bool) (err error) {
 	defer func() {
+		if shutdown {
+			return // no need to restart the loop if we're shutting down
+		}
 		client.stateMutex.Lock()
 		isDirty := client.dirtyBits != 0
 		client.stateMutex.Unlock()
