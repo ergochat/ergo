@@ -895,6 +895,23 @@ func (channel *Channel) GetMetadata(key string) (string, bool) {
 	return val, ok
 }
 
+type MetadataPair struct {
+	Key   string
+	Value string
+}
+
+func (channel *Channel) GetMetadataBulk(keys []string) (result []MetadataPair) {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+
+	for _, k := range keys {
+		if val, ok := channel.metadata[k]; ok {
+			result = append(result, MetadataPair{Key: k, Value: val})
+		}
+	}
+	return result
+}
+
 func (channel *Channel) SetMetadata(key string, value string, limit int) (updated bool, err error) {
 	defer channel.MarkDirty(IncludeAllAttrs)
 
@@ -960,6 +977,18 @@ func (client *Client) GetMetadata(key string) (string, bool) {
 
 	val, ok := client.metadata[key]
 	return val, ok
+}
+
+func (client *Client) GetMetadataBulk(keys []string) (result []MetadataPair) {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+
+	for _, k := range keys {
+		if val, ok := client.metadata[k]; ok {
+			result = append(result, MetadataPair{Key: k, Value: val})
+		}
+	}
+	return result
 }
 
 func (client *Client) SetMetadata(key string, value string, limit int) (updated bool, err error) {
