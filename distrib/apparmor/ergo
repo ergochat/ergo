@@ -9,14 +9,15 @@ profile ergo /usr/bin/ergo {
   include <abstractions/nameservice>
 
   /etc/ergo/ircd.{motd,yaml} r,
-  /etc/ssl/irc/{crt,key} r,
-  /etc/ssl/ergo/{crt,key} r,
-  /usr/bin/ergo mr,
+  /etc/ssl/{ergo,irc}/{crt,key} r,
   /proc/sys/net/core/somaxconn r,
   /sys/kernel/mm/transparent_hugepage/hpage_pmd_size r,
+  /usr/bin/ergo mr,
+  /usr/bin/ergo-ldap Px -> ergo-ldap,
   /usr/share/ergo/languages/{,*.lang.json,*.yaml} r,
   owner /run/ergo/ircd.lock rwk,
   owner /var/lib/ergo/ircd.db rw,
+  owner /var/lib/ergo/ircd.db.*.bak w,
 
   include if exists <local/ergo>
 
@@ -25,7 +26,7 @@ profile ergo /usr/bin/ergo {
 profile ergo-ldap /usr/bin/ergo-ldap {
   include <abstractions/openssl>
   include <abstractions/ssl_certs>
-  
+
   /usr/bin/ergo-ldap rm,
   /etc/ergo/ldap.yaml r,
 
