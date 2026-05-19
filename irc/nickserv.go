@@ -802,7 +802,7 @@ func nsGhostHandler(service *ircService, server *Server, client *Client, command
 		return
 	}
 
-	ghost.Quit(fmt.Sprintf(ghost.t("GHOSTed by %s"), client.Nick()), nil)
+	ghost.Quit(fmt.Sprintf(ghost.t("GHOSTed by %s"), client.Nick()), nil, nil)
 	ghost.destroy(nil)
 }
 

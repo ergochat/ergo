@@ -1791,7 +1791,7 @@ func (am *AccountManager) Suspend(accountName string, duration time.Duration, op
 	suspension.AccountName = accountName
 	for _, client := range clients {
 		client.Logout()
-		client.Quit(suspensionToString(client, suspension), nil)
+		client.Quit(suspensionToString(client, suspension), nil, nil)
 		client.destroy(nil)
 	}
 	return nil
@@ -1800,7 +1800,7 @@ func (am *AccountManager) Suspend(accountName string, duration time.Duration, op
 func (am *AccountManager) killClients(clients []*Client) {
 	for _, client := range clients {
 		client.Logout()
-		client.Quit(client.t("You are no longer authorized to be on this server"), nil)
+		client.Quit(client.t("You are no longer authorized to be on this server"), nil, nil)
 		client.destroy(nil)
 	}
 }
