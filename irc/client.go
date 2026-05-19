@@ -201,6 +201,7 @@ type Session struct {
 	isupportSentPrereg bool
 
 	quitMessage string
+	quitLabel   string // labeled-response label to attach to the final QUIT line
 
 	awayMessage string
 	awayAt      time.Time
@@ -1244,6 +1245,20 @@ func (client *Client) LoggedIntoAccount() bool {
 }
 
 // Quit sets the given quit message for the client.
+// makeClientQuitLine builds the QUIT line sent to a session as its connection closes,
+// attaching server-time and (for a client-initiated QUIT) the labeled-response label.
+func makeClientQuitLine(sess *Session, nuh, message string, now time.Time) ircmsg.Message {
+	quitMsg := ircmsg.MakeMessage(nil, nuh, "QUIT", message)
+	if sess.capabilities.Has(caps.ServerTime) {
+		quitMsg.SetTag("time", now.Format(utils.IRCv3TimestampFormat))
+	}
+	// #2402: a client-initiated QUIT is the labeled response to its own command
+	if sess.quitLabel != "" && sess.capabilities.Has(caps.LabeledResponse) {
+		quitMsg.SetTag(caps.LabelTagName, sess.quitLabel)
+	}
+	return quitMsg
+}
+
 // (You must ensure separately that destroy() is called, e.g., by returning `true` from
 // the command handler or calling it yourself.)
 func (client *Client) Quit(message string, session *Session) {
@@ -1255,10 +1270,7 @@ func (client *Client) Quit(message string, session *Session) {
 		var finalData []byte
 		// #364: don't send QUIT lines to unregistered clients
 		if client.registered {
-			quitMsg := ircmsg.MakeMessage(nil, nuh, "QUIT", message)
-			if sess.capabilities.Has(caps.ServerTime) {
-				quitMsg.SetTag("time", now.Format(utils.IRCv3TimestampFormat))
-			}
+			quitMsg := makeClientQuitLine(sess, nuh, message, now)
 			finalData, _ = quitMsg.LineBytesStrict(false, MaxLineLen)
 		}
 

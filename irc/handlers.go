@@ -2964,6 +2964,9 @@ func quitHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 	if len(msg.Params) > 0 {
 		reason += ": " + msg.Params[0]
 	}
+	// #2402: the final QUIT line carries the label; don't also emit a labeled ACK
+	rb.session.quitLabel = rb.Label
+	rb.Label = ""
 	client.Quit(reason, rb.session)
 	return true
 }

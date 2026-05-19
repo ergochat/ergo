@@ -6,10 +6,42 @@ package irc
 import (
 	"fmt"
 	"testing"
+	"time"
 
+	"github.com/ergochat/ergo/irc/caps"
 	"github.com/ergochat/ergo/irc/languages"
 	"github.com/ergochat/ergo/irc/utils"
 )
+
+func TestClientQuitLineLabeled(t *testing.T) {
+	nuh := "foo!~user@127.0.0.1"
+	now := time.Now().UTC()
+
+	// #2402: a client-initiated QUIT must carry the labeled-response label
+	var labeled Session
+	labeled.capabilities.Enable(caps.LabeledResponse)
+	labeled.quitLabel = "deadbeef"
+	quitMsg := makeClientQuitLine(&labeled, nuh, "Quit: foo out", now)
+	if _, value := quitMsg.GetTag(caps.LabelTagName); value != "deadbeef" {
+		t.Errorf("expected QUIT line to carry label deadbeef, got %q", value)
+	}
+
+	// a QUIT with no pending label must not be tagged
+	var unlabeled Session
+	unlabeled.capabilities.Enable(caps.LabeledResponse)
+	quitMsg = makeClientQuitLine(&unlabeled, nuh, "Quit: foo out", now)
+	if quitMsg.HasTag(caps.LabelTagName) {
+		t.Error("QUIT line without a pending label must not carry a label tag")
+	}
+
+	// a label must not be attached if the session lacks the labeled-response cap
+	var noCap Session
+	noCap.quitLabel = "deadbeef"
+	quitMsg = makeClientQuitLine(&noCap, nuh, "Quit: foo out", now)
+	if quitMsg.HasTag(caps.LabelTagName) {
+		t.Error("QUIT line must not carry a label tag without the labeled-response cap")
+	}
+}
 
 func TestGenerateBatchID(t *testing.T) {
 	var session Session
