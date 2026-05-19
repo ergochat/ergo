@@ -414,7 +414,7 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 		c.Send(nil, c.server.name, "FAIL", "*", "ACCOUNT_REQUIRED", quitMessage)
 	}
 	if authOutcome != authSuccess {
-		c.Quit(quitMessage, nil)
+		c.Quit(quitMessage, nil, nil)
 		return true
 	}
 	c.requireSASLMessage = ""
@@ -463,7 +463,7 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 		isBanned, info := server.klines.CheckMasks(c.AllNickmasks()...)
 		if isBanned && !(info.RequireSASL && session.client.Account() != "") {
 			c.setKlined()
-			c.Quit(info.BanMessage(c.t("You are banned from this server (%s)")), nil)
+			c.Quit(info.BanMessage(c.t("You are banned from this server (%s)")), nil, nil)
 			server.logger.Info("connect", session.connID, "Client rejected by k-line", c.NickMaskString())
 			return true
 		}

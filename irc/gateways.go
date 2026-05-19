@@ -119,7 +119,7 @@ func handleProxyCommand(server *Server, client *Client, session *Session, line s
 			if quitMsg == "" {
 				quitMsg = client.t("Bad or unauthorized PROXY command")
 			}
-			client.Quit(quitMsg, session)
+			client.Quit(quitMsg, session, nil)
 		}
 	}()
 

@@ -229,7 +229,7 @@ func ubanAddCIDR(client *Client, target ubanTarget, duration time.Duration, requ
 
 	sessions, nicks := sessionsForCIDR(client.server, target.cidr, rb.session, requireSASL)
 	for _, session := range sessions {
-		session.client.Quit("You have been banned from this server", session)
+		session.client.Quit("You have been banned from this server", session, nil)
 		session.client.destroy(session)
 	}
 
@@ -258,7 +258,7 @@ func ubanAddNickmask(client *Client, target ubanTarget, duration time.Duration, 
 		if mcl != client && target.matcher.MatchString(mcl.NickMaskCasefolded()) {
 			if !mcl.AlwaysOn() {
 				killed = append(killed, mcl.Nick())
-				mcl.Quit("You have been banned from this server", nil)
+				mcl.Quit("You have been banned from this server", nil, nil)
 				mcl.destroy(nil)
 			} else {
 				alwaysOn = append(alwaysOn, mcl.Nick())

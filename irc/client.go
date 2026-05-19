@@ -709,7 +709,7 @@ func (client *Client) run(session *Session) {
 			default:
 				quitMessage = "connection closed"
 			}
-			client.Quit(quitMessage, session)
+			client.Quit(quitMessage, session, nil)
 			break
 		}
 
@@ -773,7 +773,7 @@ func (client *Client) run(session *Session) {
 			if strings.HasPrefix(line, utf8BOM) {
 				message = "Received UTF-8 byte-order mark, which is invalid at the start of an IRC protocol message"
 			}
-			client.Quit(message, session)
+			client.Quit(message, session, nil)
 			break
 		}
 
@@ -893,7 +893,7 @@ func (session *Session) handleIdleTimeout() {
 	var shouldDestroy, shouldSendPing bool
 	defer func() {
 		if shouldDestroy {
-			session.client.Quit(fmt.Sprintf("Ping timeout: %v", totalTimeout), session)
+			session.client.Quit(fmt.Sprintf("Ping timeout: %v", totalTimeout), session, nil)
 			session.client.destroy(session)
 		} else if shouldSendPing {
 			session.Ping()
@@ -1246,7 +1246,7 @@ func (client *Client) LoggedIntoAccount() bool {
 // Quit sets the given quit message for the client.
 // (You must ensure separately that destroy() is called, e.g., by returning `true` from
 // the command handler or calling it yourself.)
-func (client *Client) Quit(message string, session *Session) {
+func (client *Client) Quit(message string, session *Session, rb *ResponseBuffer) {
 	nuh := client.NickMaskString()
 	now := time.Now().UTC()
 
@@ -1259,7 +1259,11 @@ func (client *Client) Quit(message string, session *Session) {
 			if sess.capabilities.Has(caps.ServerTime) {
 				quitMsg.SetTag("time", now.Format(utils.IRCv3TimestampFormat))
 			}
-			finalData, _ = quitMsg.LineBytesStrict(false, MaxLineLen)
+			if rb != nil {
+				rb.AddMessage(quitMsg)
+			} else {
+				finalData, _ = quitMsg.LineBytesStrict(false, MaxLineLen)
+			}
 		}
 
 		errorMsg := ircmsg.MakeMessage(nil, "", "ERROR", message)
@@ -1355,7 +1359,7 @@ func (client *Client) destroy(session *Session) {
 		}
 		session.stopIdleTimer()
 		// send quit/error message to client if they haven't been sent already
-		client.Quit("", session)
+		client.Quit("", session, nil)
 		quitMessage = session.quitMessage // doesn't need synch, we already detached
 		session.socket.Close()
 
@@ -1860,7 +1864,7 @@ func (client *Client) privmsgsBetween(startTime, endTime time.Time, targetLimit,
 }
 
 func (client *Client) handleRegisterTimeout() {
-	client.Quit(fmt.Sprintf("Registration timeout: %v", RegisterTimeout), nil)
+	client.Quit(fmt.Sprintf("Registration timeout: %v", RegisterTimeout), nil, nil)
 	client.destroy(nil)
 }
 
