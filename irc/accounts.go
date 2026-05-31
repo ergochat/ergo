@@ -1926,7 +1926,7 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 
 	// on our way out, unregister all the account's channels and delete them from the db
 	defer func() {
-		for _, channelName := range am.server.channels.ChannelsForAccount(casefoldedAccount) {
+		for _, channelName := range am.server.channels.ChannelsForAccount(casefoldedAccount, true) {
 			err := am.server.channels.SetUnregistered(channelName, casefoldedAccount)
 			if err != nil {
 				am.server.logger.Error("internal", "couldn't unregister channel", channelName, err.Error())
