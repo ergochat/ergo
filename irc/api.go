@@ -287,7 +287,7 @@ func (a *ergoAPI) handleAccountDetails(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Get channels the account is in
-			response.Channels = a.server.channels.ChannelsForAccount(accountData.NameCasefolded)
+			response.Channels = a.server.channels.ChannelsForAccount(accountData.NameCasefolded, true)
 			response.Success = true
 		case errAccountDoesNotExist, errAccountUnverified, errAccountSuspended:
 			response.Success = false

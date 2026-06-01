@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ergochat/ergo/irc/datastore"
+	"github.com/ergochat/ergo/irc/modes"
 	"github.com/ergochat/ergo/irc/utils"
 )
 
@@ -487,13 +488,15 @@ func (cm *ChannelManager) LoadPurgeRecord(cfchname string) (record ChannelPurgeR
 	}
 }
 
-func (cm *ChannelManager) ChannelsForAccount(account string) (channels []string) {
+func (cm *ChannelManager) ChannelsForAccount(account string, isPrivileged bool) (channels []string) {
 	cm.RLock()
 	defer cm.RUnlock()
 
 	for cfname, entry := range cm.chans {
 		if entry.channel.Founder() == account {
-			channels = append(channels, cfname)
+			if isPrivileged || !entry.channel.flags.HasMode(modes.Secret) {
+				channels = append(channels, cfname)
+			}
 		}
 	}
 

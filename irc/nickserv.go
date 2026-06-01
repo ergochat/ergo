@@ -948,7 +948,9 @@ func nsInfoHandler(service *ircService, server *Server, client *Client, command 
 	registeredAt := account.RegisteredAt.Format(time.RFC1123)
 	service.Notice(rb, fmt.Sprintf(client.t("Registered at: %s"), registeredAt))
 
-	if account.Name == client.AccountName() || client.HasRoleCapabs("accreg") {
+	isSelf := account.Name == client.AccountName()
+
+	if isSelf || client.HasRoleCapabs("accreg") {
 		if account.Settings.Email != "" {
 			service.Notice(rb, fmt.Sprintf(client.t("Email address: %s"), account.Settings.Email))
 		}
@@ -958,15 +960,15 @@ func nsInfoHandler(service *ircService, server *Server, client *Client, command 
 	for _, nick := range account.AdditionalNicks {
 		service.Notice(rb, fmt.Sprintf(client.t("Additional grouped nick: %s"), nick))
 	}
-	listRegisteredChannels(service, accountName, rb)
+	listRegisteredChannels(service, accountName, (isSelf || client.HasRoleCapabs("sajoin")), rb)
 	if account.Suspended != nil {
 		service.Notice(rb, suspensionToString(client, *account.Suspended))
 	}
 }
 
-func listRegisteredChannels(service *ircService, accountName string, rb *ResponseBuffer) {
+func listRegisteredChannels(service *ircService, accountName string, isPrivileged bool, rb *ResponseBuffer) {
 	client := rb.session.client
-	channels := client.server.channels.ChannelsForAccount(accountName)
+	channels := client.server.channels.ChannelsForAccount(accountName, isPrivileged)
 	service.Notice(rb, fmt.Sprintf(client.t("Account %s has %d registered channel(s)."), accountName, len(channels)))
 	for _, channel := range channels {
 		service.Notice(rb, fmt.Sprintf(client.t("Registered channel: %s"), channel))
