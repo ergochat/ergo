@@ -54,7 +54,7 @@ This release includes changes to the config file format, all of which are fully 
 Many thanks to [@branchgrove](https://github.com/branchgrove), [@Brutus5000](https://github.com/Brutus5000), [@progval](https://github.com/progval), [@SarahRoseLives](https://github.com/SarahRoseLives), [@thatcher-gaming](https://github.com/thatcher-gaming), [@ValwareIRC](https://github.com/ValwareIRC), and Xogium for contributing patches, reporting issues, and helping test.
 
 ### Config changes
-* Added `accounts.metadata` block to configure the new metadata feature. If this block is absent, metadata is disabled. See `default.yaml` for an example. (#2273)
+* Added `metadata` block to configure the new metadata feature. If this block is absent, metadata is disabled. See `default.yaml` for an example. (#2273)
 * Added `server.idle-timeouts` for configurable idle timeouts; when unset, the previous hardcoded defaults are used (#2292, thanks [@Brutus5000](https://github.com/Brutus5000)!)
 * Added `server.oper-throttle` to configure throttling for failed `OPER` attempts; when unset, this defaults to 1 attempt every 10 seconds (#2296)
 
