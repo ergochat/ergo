@@ -252,7 +252,7 @@ func LoadVAPIDKeys(dstore datastore.Datastore) (*webpush.VAPIDKeys, error) {
 	}
 	result := new(webpush.VAPIDKeys)
 	err = json.Unmarshal([]byte(val), result)
-	return result, nil
+	return result, err
 }
 
 func schemaChangeV1toV2(config *Config, tx *buntdb.Tx) error {

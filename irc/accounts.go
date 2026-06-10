@@ -584,6 +584,9 @@ func (am *AccountManager) setPassword(accountName string, password string, hasPr
 
 	err = am.server.store.Update(func(tx *buntdb.Tx) error {
 		curCredStr, err := tx.Get(credKey)
+		if err != nil {
+			return err
+		}
 		if credStr != curCredStr {
 			return errCASFailed
 		}
@@ -841,6 +844,9 @@ func (am *AccountManager) addRemoveCertfp(account, certfp string, add bool, hasP
 	certfpKey := fmt.Sprintf(keyCertToAccount, certfp)
 	err = am.server.store.Update(func(tx *buntdb.Tx) error {
 		curCredStr, err := tx.Get(credKey)
+		if err != nil {
+			return err
+		}
 		if credStr != curCredStr {
 			return errCASFailed
 		}
