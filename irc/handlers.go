@@ -3534,12 +3534,6 @@ func relaymsgHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 	}
 	nuh := fmt.Sprintf("%s!%s@%s", nick, ident, hostname)
 
-	channel.AddHistoryItem(history.Item{
-		Type:    history.Privmsg,
-		Message: message,
-		Nick:    nuh,
-	}, "")
-
 	// 3 possibilities for tags:
 	// no tags, the relaymsg tag only, or the relaymsg tag together with all client-only tags
 	relayTag := map[string]string{
@@ -3556,6 +3550,13 @@ func relaymsgHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 			fullTags[t] = v
 		}
 	}
+
+	channel.AddHistoryItem(history.Item{
+		Type:    history.Privmsg,
+		Message: message,
+		Nick:    nuh,
+		Tags:    fullTags,
+	}, "")
 
 	// actually send the message
 	channelName := channel.Name()
