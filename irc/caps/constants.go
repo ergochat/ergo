@@ -66,6 +66,10 @@ const (
 	ChathistoryTargetsBatchType   = "draft/chathistory-targets"
 	ExtendedISupportBatchType     = "draft/isupport"
 	ChathistoryEndOfPaginationTag = "draft/chathistory-end"
+
+	// authtoken draft: https://github.com/ircv3/ircv3-specifications/pull/602
+	AuthTokenBatchType = "draft/authtoken"
+	AuthToken005       = "draft/AUTHTOKEN"
 )
 
 func init() {
