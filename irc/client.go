@@ -720,7 +720,7 @@ func (client *Client) run(session *Session) {
 			default:
 				quitMessage = "connection closed"
 			}
-			client.Quit(quitMessage, session)
+			client.Quit(quitMessage, session, nil)
 			break
 		}
 
@@ -784,7 +784,7 @@ func (client *Client) run(session *Session) {
 			if strings.HasPrefix(line, utf8BOM) {
 				message = "Received UTF-8 byte-order mark, which is invalid at the start of an IRC protocol message"
 			}
-			client.Quit(message, session)
+			client.Quit(message, session, nil)
 			break
 		}
 
@@ -904,7 +904,7 @@ func (session *Session) handleIdleTimeout() {
 	var shouldDestroy, shouldSendPing bool
 	defer func() {
 		if shouldDestroy {
-			session.client.Quit(fmt.Sprintf("Ping timeout: %v", totalTimeout), session)
+			session.client.Quit(fmt.Sprintf("Ping timeout: %v", totalTimeout), session, nil)
 			session.client.destroy(session)
 		} else if shouldSendPing {
 			session.Ping()
@@ -1257,7 +1257,7 @@ func (client *Client) LoggedIntoAccount() bool {
 // Quit sets the given quit message for the client.
 // (You must ensure separately that destroy() is called, e.g., by returning `true` from
 // the command handler or calling it yourself.)
-func (client *Client) Quit(message string, session *Session) {
+func (client *Client) Quit(message string, session *Session, rb *ResponseBuffer) {
 	nuh := client.NickMaskString()
 	now := time.Now().UTC()
 
@@ -1270,7 +1270,11 @@ func (client *Client) Quit(message string, session *Session) {
 			if sess.capabilities.Has(caps.ServerTime) {
 				quitMsg.SetTag("time", now.Format(utils.IRCv3TimestampFormat))
 			}
-			finalData, _ = quitMsg.LineBytesStrict(false, MaxLineLen)
+			if rb != nil {
+				rb.AddMessage(quitMsg)
+			} else {
+				finalData, _ = quitMsg.LineBytesStrict(false, MaxLineLen)
+			}
 		}
 
 		errorMsg := ircmsg.MakeMessage(nil, "", "ERROR", message)
@@ -1366,7 +1370,7 @@ func (client *Client) destroy(session *Session) {
 		}
 		session.stopIdleTimer()
 		// send quit/error message to client if they haven't been sent already
-		client.Quit("", session)
+		client.Quit("", session, nil)
 		quitMessage = session.quitMessage // doesn't need synch, we already detached
 		session.socket.Close()
 
@@ -1650,11 +1654,12 @@ func (session *Session) Notice(text string) {
 
 // `simulated` is for the fake join of an always-on client
 // (we just read the channel name from the database, there's no need to write it back)
-func (client *Client) addChannel(channel *Channel, simulated bool) (err error) {
+func (client *Client) addChannel(channel *Channel) (alwaysOn bool, err error) {
 	config := client.server.Config()
 
 	client.stateMutex.Lock()
-	alwaysOn := client.alwaysOn
+	defer client.stateMutex.Unlock()
+	alwaysOn = client.alwaysOn
 	if client.destroyed {
 		err = errClientDestroyed
 	} else if client.oper == nil && len(client.channels) >= config.Channels.MaxChannelsPerClient {
@@ -1662,11 +1667,8 @@ func (client *Client) addChannel(channel *Channel, simulated bool) (err error) {
 	} else {
 		client.channels.Add(channel) // success
 	}
-	client.stateMutex.Unlock()
-
-	if err == nil && alwaysOn && !simulated {
-		client.markDirty(IncludeChannels)
-	}
+	// XXX don't markDirty here; we need to wait for the change to go through
+	// on the channel side, so we can correctly record whatever mode was granted
 	return
 }
 
@@ -1873,7 +1875,7 @@ func (client *Client) privmsgsBetween(startTime, endTime time.Time, targetLimit,
 }
 
 func (client *Client) handleRegisterTimeout() {
-	client.Quit(fmt.Sprintf("Registration timeout: %v", RegisterTimeout), nil)
+	client.Quit(fmt.Sprintf("Registration timeout: %v", RegisterTimeout), nil, nil)
 	client.destroy(nil)
 }
 
@@ -1978,8 +1980,11 @@ func (client *Client) performWrite(additionalDirtyBits uint) {
 }
 
 // Blocking store; see Channel.Store and Socket.BlockingWrite
-func (client *Client) Store(dirtyBits uint) (err error) {
+func (client *Client) Store(dirtyBits uint, shutdown bool) (err error) {
 	defer func() {
+		if shutdown {
+			return // no need to restart the loop if we're shutting down
+		}
 		client.stateMutex.Lock()
 		isDirty := client.dirtyBits != 0
 		client.stateMutex.Unlock()

@@ -255,7 +255,7 @@ func (channel *Channel) writeLoop() {
 // Store writes part (or all) of the channel's data back to the database,
 // blocking until the write is complete. This is the equivalent of
 // Socket.BlockingWrite.
-func (channel *Channel) Store(dirtyBits uint) (err error) {
+func (channel *Channel) Store(additionalDirtyBits uint) (err error) {
 	defer func() {
 		channel.stateMutex.Lock()
 		isDirty := channel.dirtyBits != 0
@@ -271,7 +271,7 @@ func (channel *Channel) Store(dirtyBits uint) (err error) {
 
 	channel.writebackLock.Lock()
 	defer channel.writebackLock.Unlock()
-	return channel.performWrite(dirtyBits)
+	return channel.performWrite(additionalDirtyBits)
 }
 
 // do an individual write; equivalent of Socket.send()
@@ -802,7 +802,8 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		}
 	}
 
-	if joinErr := client.addChannel(channel, rb == nil); joinErr != nil {
+	alwaysOn, joinErr := client.addChannel(channel)
+	if joinErr != nil {
 		return joinErr, ""
 	}
 
@@ -833,6 +834,13 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 
 		return
 	}()
+
+	if alwaysOn {
+		// skip this for simulated join of always-on clients on server startup:
+		if rb != nil {
+			client.markDirty(IncludeChannels)
+		}
+	}
 
 	var message utils.SplitMessage
 	respectAuditorium := givenMode == modes.Mode(0) && channel.flags.HasMode(modes.Auditorium)
@@ -1368,7 +1376,7 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 	}
 
 	// send echo-message
-	rb.addEchoMessage(clientOnlyTags, details.nickMask, details.accountName, command, chname, message)
+	rb.addEchoMessage(clientOnlyTags, details.nickMask, details.accountName, command, chname, message, isBot)
 
 	var cache MessageCache
 	cache.InitializeSplitMessage(channel.server, details.nickMask, details.accountName, isBot, clientOnlyTags, command, chname, message)

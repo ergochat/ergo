@@ -163,7 +163,7 @@ func (server *Server) Shutdown() {
 	}
 
 	// flush data associated with always-on clients:
-	server.performAlwaysOnMaintenance(false, true)
+	server.performAlwaysOnMaintenance(true)
 
 	if err := server.store.Close(); err != nil {
 		server.logger.Error("shutdown", "Could not close datastore", err.Error())
@@ -285,20 +285,28 @@ func (server *Server) periodicAlwaysOnMaintenance() {
 	defer server.HandlePanic(nil)
 
 	server.logger.Info("accounts", "Performing periodic always-on client checks")
-	server.performAlwaysOnMaintenance(true, true)
+	server.performAlwaysOnMaintenance(false)
 }
 
-func (server *Server) performAlwaysOnMaintenance(checkExpiration, flushTimestamps bool) {
+func (server *Server) performAlwaysOnMaintenance(shutdown bool) {
 	config := server.Config()
 	for _, client := range server.clients.AllClients() {
-		if checkExpiration && client.IsExpiredAlwaysOn(config) {
+		if !shutdown && client.IsExpiredAlwaysOn(config) {
 			// TODO save the channels list, use it for autojoin if/when they return?
 			server.logger.Info("accounts", "Expiring always-on client", client.AccountName())
 			client.destroy(nil)
 			continue
 		}
 
-		if flushTimestamps && client.shouldFlushTimestamps() {
+		// synchronously flush channel memberships, etc., avoiding a race between
+		// immediate but asynchronous writeback of those fields and server shutdown
+		if shutdown && client.AlwaysOn() {
+			client.Store(0, shutdown)
+		}
+
+		// flush the timestamps (which are not written back immediately, for debouncing
+		// reasons), either as periodic maintenance or on shutdown
+		if client.shouldFlushTimestamps() {
 			account := client.Account()
 			server.accounts.saveLastSeen(account, client.copyLastSeen())
 			server.accounts.saveReadMarkers(account, client.copyReadMarkers())
@@ -343,7 +351,7 @@ func (server *Server) performPushMaintenance() {
 			}
 		}
 		// persist all push subscriptions on the assumption that the timestamps have changed
-		client.Store(IncludePushSubscriptions)
+		client.Store(IncludePushSubscriptions, false)
 	}
 }
 
@@ -406,7 +414,7 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 		c.Send(nil, c.server.name, "FAIL", "*", "ACCOUNT_REQUIRED", quitMessage)
 	}
 	if authOutcome != authSuccess {
-		c.Quit(quitMessage, nil)
+		c.Quit(quitMessage, nil, nil)
 		return true
 	}
 	c.requireSASLMessage = ""
@@ -455,7 +463,7 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 		isBanned, info := server.klines.CheckMasks(c.AllNickmasks()...)
 		if isBanned && !(info.RequireSASL && session.client.Account() != "") {
 			c.setKlined()
-			c.Quit(info.BanMessage(c.t("You are banned from this server (%s)")), nil)
+			c.Quit(info.BanMessage(c.t("You are banned from this server (%s)")), nil, nil)
 			server.logger.Info("connect", session.connID, "Client rejected by k-line", c.NickMaskString())
 			return true
 		}

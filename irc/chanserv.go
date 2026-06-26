@@ -460,7 +460,7 @@ func csRegisterHandler(service *ircService, server *Server, client *Client, comm
 // check whether a client has already registered too many channels
 func checkChanLimit(service *ircService, client *Client, rb *ResponseBuffer) (ok bool) {
 	account := client.Account()
-	channelsAlreadyRegistered := client.server.channels.ChannelsForAccount(account)
+	channelsAlreadyRegistered := client.server.channels.ChannelsForAccount(account, true)
 	ok = len(channelsAlreadyRegistered) < client.server.Config().Channels.Registration.MaxChannelsPerAccount || client.HasRoleCapabs("chanreg")
 	if !ok {
 		service.Notice(rb, client.t("You have already registered the maximum number of channels; try dropping some with /CS UNREGISTER"))
@@ -755,7 +755,7 @@ func csListHandler(service *ircService, server *Server, client *Client, command 
 func csInfoHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	if len(params) == 0 {
 		// #765
-		listRegisteredChannels(service, client.Account(), rb)
+		listRegisteredChannels(service, client.Account(), true, rb)
 		return
 	}
 

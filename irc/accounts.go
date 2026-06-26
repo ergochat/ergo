@@ -1791,7 +1791,7 @@ func (am *AccountManager) Suspend(accountName string, duration time.Duration, op
 	suspension.AccountName = accountName
 	for _, client := range clients {
 		client.Logout()
-		client.Quit(suspensionToString(client, suspension), nil)
+		client.Quit(suspensionToString(client, suspension), nil, nil)
 		client.destroy(nil)
 	}
 	return nil
@@ -1800,7 +1800,7 @@ func (am *AccountManager) Suspend(accountName string, duration time.Duration, op
 func (am *AccountManager) killClients(clients []*Client) {
 	for _, client := range clients {
 		client.Logout()
-		client.Quit(client.t("You are no longer authorized to be on this server"), nil)
+		client.Quit(client.t("You are no longer authorized to be on this server"), nil, nil)
 		client.destroy(nil)
 	}
 }
@@ -1926,7 +1926,7 @@ func (am *AccountManager) Unregister(account string, erase bool) error {
 
 	// on our way out, unregister all the account's channels and delete them from the db
 	defer func() {
-		for _, channelName := range am.server.channels.ChannelsForAccount(casefoldedAccount) {
+		for _, channelName := range am.server.channels.ChannelsForAccount(casefoldedAccount, true) {
 			err := am.server.channels.SetUnregistered(channelName, casefoldedAccount)
 			if err != nil {
 				am.server.logger.Error("internal", "couldn't unregister channel", channelName, err.Error())

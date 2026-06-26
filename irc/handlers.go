@@ -749,7 +749,7 @@ func capHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 			rb.Add(nil, server.name, "CAP", details.nick, "NAK", capString)
 			return false
 		} else if toAdd.Has(caps.Nope) && !client.registered {
-			client.Quit(fmt.Sprintf(client.t("Requesting the %s client capability is forbidden"), caps.Nope.Name()), rb.session)
+			client.Quit(fmt.Sprintf(client.t("Requesting the %s client capability is forbidden"), caps.Nope.Name()), rb.session, nil)
 			return true
 		}
 
@@ -1196,7 +1196,7 @@ func dlineHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respon
 
 		for _, session := range sessionsToKill {
 			mcl := session.client
-			mcl.Quit(fmt.Sprintf(mcl.t("You have been banned from this server (%s)"), reason), session)
+			mcl.Quit(fmt.Sprintf(mcl.t("You have been banned from this server (%s)"), reason), session, nil)
 			if session == rb.session {
 				killClient = true
 			} else {
@@ -1645,7 +1645,7 @@ func killHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 	}
 	server.snomasks.Send(sno.LocalKills, snoLine)
 
-	target.Quit(quitMsg, nil)
+	target.Quit(quitMsg, nil, nil)
 	target.destroy(nil)
 	return false
 }
@@ -1776,7 +1776,7 @@ func klineHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respon
 		}
 
 		for _, mcl := range clientsToKill {
-			mcl.Quit(fmt.Sprintf(mcl.t("You have been banned from this server (%s)"), reason), nil)
+			mcl.Quit(fmt.Sprintf(mcl.t("You have been banned from this server (%s)"), reason), nil, nil)
 			if mcl == client {
 				killClient = true
 			} else {
@@ -2475,10 +2475,11 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 		lowercaseTarget := strings.ToLower(target)
 		service, isService := ErgoServices[lowercaseTarget]
 		_, isZNC := zncHandlers[lowercaseTarget]
+		isBot := client.HasMode(modes.Bot)
 
 		if isService || isZNC {
 			details := client.Details()
-			rb.addEchoMessage(tags, details.nickMask, details.accountName, command, target, message)
+			rb.addEchoMessage(tags, details.nickMask, details.accountName, command, target, message, isBot)
 			if histType != history.Privmsg {
 				return // NOTICE and TAGMSG to services are ignored
 			}
@@ -2539,7 +2540,6 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 			}
 		}
 
-		isBot := client.HasMode(modes.Bot)
 		for _, session := range deliverySessions {
 			hasTagsCap := session.capabilities.Has(caps.MessageTags)
 			// don't send TAGMSG at all if they don't have the tags cap
@@ -2555,7 +2555,7 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 		}
 
 		// the originating session may get an echo message:
-		rb.addEchoMessage(tags, nickMaskString, accountName, command, tnick, message)
+		rb.addEchoMessage(tags, nickMaskString, accountName, command, tnick, message, isBot)
 		if histType == history.Privmsg {
 			//TODO(dan): possibly implement cooldown of away notifications to users
 			if away, awayMessage := user.Away(); away {
@@ -2571,6 +2571,7 @@ func dispatchMessageToTarget(client *Client, tags map[string]string, histType hi
 			Type:    histType,
 			Message: message,
 			Tags:    tags,
+			IsBot:   isBot,
 		}
 		client.addHistoryItem(user, item, &details, &tDetails, config)
 
@@ -3036,7 +3037,7 @@ func quitHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 	if len(msg.Params) > 0 {
 		reason += ": " + msg.Params[0]
 	}
-	client.Quit(reason, rb.session)
+	client.Quit(reason, rb.session, rb)
 	return true
 }
 
@@ -3367,7 +3368,7 @@ func metadataRegisteredHandler(client *Client, config *Config, subcommand string
 
 		values := targetObj.ClearMetadata()
 
-		playMetadataList(rb, client.Nick(), target, values)
+		playMetadataClear(rb, client.Nick(), target, values)
 
 	case "get":
 		if !metadataCanISeeThisTarget(client, targetObj) {
@@ -4256,7 +4257,7 @@ func webircHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 			candidateIP := msg.Params[3]
 			err, quitMsg := client.ApplyProxiedIP(rb.session, net.ParseIP(candidateIP), secure)
 			if err != nil {
-				client.Quit(quitMsg, rb.session)
+				client.Quit(quitMsg, rb.session, rb)
 				return true
 			} else {
 				if info.AcceptHostname {
@@ -4275,7 +4276,7 @@ func webircHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 		}
 	}
 
-	client.Quit(client.t("WEBIRC command is not usable from your address or incorrect password given"), rb.session)
+	client.Quit(client.t("WEBIRC command is not usable from your address or incorrect password given"), rb.session, rb)
 	return true
 }
 
