@@ -116,7 +116,7 @@ func (t *AuthTokensConfig) Issue(token AuthToken) (result string, err error) {
 	return j.SignedString(conf.signingKey)
 }
 
-func (t *AuthTokensConfig) Verify(service, url, token string) (result AuthToken, err error) {
+func (t *AuthTokensConfig) Verify(service, token string) (result AuthToken, err error) {
 	service = strings.ToUpper(service)
 	conf, err := t.getService(service)
 	if err != nil {
@@ -143,7 +143,7 @@ func (t *AuthTokensConfig) Verify(service, url, token string) (result AuthToken,
 		return
 	}
 	audClaim := extractStringClaim(mc, "aud")
-	if url != audClaim {
+	if conf.URL != audClaim {
 		err = ErrInvalidToken
 		return
 	}

@@ -36,7 +36,7 @@ func TestAuthTokenRoundTrip(t *testing.T) {
 		t.Fatalf("couldn't issue token: %v", err)
 	}
 
-	result, err := conf.Verify("FILEHOST", "https://example.com", jtok)
+	result, err := conf.Verify("FILEHOST", jtok)
 	if err != nil {
 		t.Errorf("couldn't validate token: %v", err)
 	}
@@ -45,7 +45,7 @@ func TestAuthTokenRoundTrip(t *testing.T) {
 		t.Errorf("didn't recover required fields from token: %#v", result)
 	}
 
-	_, err = conf.Verify("FILEHOST", "https://example.com", jtok[:len(jtok)-1])
+	_, err = conf.Verify("FILEHOST", jtok[:len(jtok)-1])
 	if err == nil {
 		t.Errorf("validated token with bad signature")
 	}

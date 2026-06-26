@@ -239,7 +239,6 @@ type TokenValidateBatch struct {
 	label         string
 	responseLabel string
 	service       string
-	url           string
 	buf           strings.Builder
 }
 

@@ -631,7 +631,6 @@ func batchHandlerTokenStart(server *Server, client *Client, msg ircmsg.Message, 
 			label:         msg.Params[0][1:],
 			responseLabel: rb.Label,
 			service:       msg.Params[2],
-			url:           msg.Params[3],
 		}
 		rb.Label = "" // suppress ACK for initial BATCH line
 	} else {
@@ -653,7 +652,7 @@ func batchHandlerTokenEnd(server *Server, client *Client, msg ircmsg.Message, rb
 	}
 
 	rb.Label = tokenValidateBatch.responseLabel
-	performTokenValidate(server, server.Config(), client, tokenValidateBatch.service, tokenValidateBatch.url, tokenValidateBatch.buf.String(), rb)
+	performTokenValidate(server, server.Config(), client, tokenValidateBatch.service, tokenValidateBatch.buf.String(), rb)
 	return false
 }
 
@@ -3955,11 +3954,11 @@ func tokenValidateHandler(server *Server, config *Config, client *Client, msg ir
 		return
 	}
 
-	performTokenValidate(server, server.Config(), client, msg.Params[1], msg.Params[2], msg.Params[3], rb)
+	performTokenValidate(server, server.Config(), client, msg.Params[1], msg.Params[2], rb)
 }
 
-func performTokenValidate(server *Server, config *Config, client *Client, service, url, token string, rb *ResponseBuffer) {
-	claims, err := config.AuthToken.Verify(service, url, token)
+func performTokenValidate(server *Server, config *Config, client *Client, service, token string, rb *ResponseBuffer) {
+	claims, err := config.AuthToken.Verify(service, token)
 	if err != nil {
 		rb.Add(nil, server.name, "FAIL", "TOKEN", "INVALID_TOKEN", client.t("Invalid token"))
 		return
@@ -3975,7 +3974,7 @@ func performTokenValidate(server *Server, config *Config, client *Client, servic
 		return
 	}
 
-	batchID := rb.StartNestedBatch(nil, caps.AuthTokenBatchType, service, url)
+	batchID := rb.StartNestedBatch(nil, caps.AuthTokenBatchType, service)
 	defer rb.EndNestedBatch(batchID)
 
 	rb.Add(nil, server.name, "TOKEN", "CLAIM", "name", claims.AccountName)
