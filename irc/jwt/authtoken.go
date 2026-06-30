@@ -44,6 +44,7 @@ type AuthToken struct {
 
 func (t *AuthTokensConfig) Postprocess() (err error) {
 	if !t.Enabled {
+		t.Services = nil // simplify diffing later
 		return nil
 	}
 
@@ -67,6 +68,22 @@ func (t *AuthTokensConfig) Postprocess() (err error) {
 	}
 	t.Services = services
 	return nil
+}
+
+func (oldConf *AuthTokensConfig) GetDifference(newConf AuthTokensConfig) (result [][]string) {
+	for srv := range oldConf.Services {
+		if _, ok := newConf.Services[srv]; !ok {
+			result = append(result, []string{"DEL", srv})
+		}
+	}
+
+	for srv, conf := range newConf.Services {
+		if oldConf, ok := oldConf.Services[srv]; !ok || conf.URL != oldConf.URL {
+			result = append(result, []string{"NEW", srv, conf.URL})
+		}
+	}
+
+	return
 }
 
 func (t *AuthTokensConfig) getService(service string) (result JwtServiceConfig, err error) {
