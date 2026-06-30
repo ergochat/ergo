@@ -3957,6 +3957,7 @@ func tokenValidateHandler(server *Server, config *Config, client *Client, msg ir
 }
 
 func performTokenValidate(server *Server, config *Config, client *Client, service, token string, rb *ResponseBuffer) {
+	service = strings.ToUpper(service)
 	claims, err := config.AuthToken.Verify(service, token)
 	if err != nil {
 		rb.Add(nil, server.name, "FAIL", "TOKEN", "INVALID_TOKEN", client.t("Invalid token"))
