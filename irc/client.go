@@ -263,10 +263,7 @@ func (s *Session) EndMultilineBatch(label string) (batch MultilineBatch, err err
 	// heuristics to estimate how much data they used while fakelag was suspended
 	fakelagBill := (batch.lenBytes / MaxLineLen) + 1
 	fakelagBillLines := (batch.message.LenLines() * 60) / MaxLineLen
-	if fakelagBill < fakelagBillLines {
-		fakelagBill = fakelagBillLines
-	}
-	s.deferredFakelagCount = fakelagBill
+	s.deferredFakelagCount = max(fakelagBill, fakelagBillLines)
 
 	if batch.label == "" || batch.label != label || !batch.message.ValidMultiline() {
 		err = errInvalidMultilineBatch
@@ -744,12 +741,7 @@ func (client *Client) run(session *Session) {
 		// XXX defer processing of command error parsing until after fakelag
 
 		if client.registered {
-			// apply deferred fakelag
-			for i := 0; i < session.deferredFakelagCount; i++ {
-				session.fakelag.Touch("")
-			}
-			session.deferredFakelagCount = 0
-			// touch for the current command
+			// apply fakelag
 			var command string
 			if err == nil {
 				command = msg.Command
@@ -797,6 +789,12 @@ func (client *Client) run(session *Session) {
 			go session.client.run(session)
 			break
 		}
+		// apply deferred fakelag immediately, so as to coincide with any delay imposed
+		// on the client side (avoiding double penalization)
+		for range session.deferredFakelagCount {
+			session.fakelag.Touch("")
+		}
+		session.deferredFakelagCount = 0
 	}
 }
 
