@@ -3835,7 +3835,7 @@ func tokenServicelistHandler(server *Server, config *Config, client *Client, rb 
 		rb.Add(nil, server.name, "NOTE", "TOKEN", "NO_SERVICES", client.t("No services are defined for this network"))
 		return
 	}
-	batchID := rb.StartNestedBatch(nil, caps.AuthTokenBatchType, "*", "*")
+	batchID := rb.StartNestedBatch(nil, caps.AuthTokenBatchType, "*")
 	defer rb.EndNestedBatch(batchID)
 	for srv, conf := range config.AuthToken.Services {
 		rb.Add(nil, server.name, "TOKEN", "SERVICE", srv, conf.URL, conf.Description)
