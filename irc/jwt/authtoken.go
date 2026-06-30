@@ -13,8 +13,7 @@ import (
 )
 
 const (
-	AuthTokenPartLength = 300
-	MaxAuthTokenLength  = 2048 // TODO check this
+	MaxAuthTokenLength = 2048 // TODO check this
 )
 
 var (
