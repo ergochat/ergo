@@ -623,7 +623,7 @@ func batchHandlerTokenStart(server *Server, client *Client, msg ircmsg.Message, 
 		if !tokenValidateCheckPermissions(server, server.Config(), client, rb) {
 			return false
 		}
-		if len(msg.Params) < 4 {
+		if len(msg.Params) < 3 {
 			failBatch(server, rb)
 			return false
 		}
@@ -3891,15 +3891,14 @@ func tokenGenerateHandler(server *Server, config *Config, client *Client, msg ir
 	}
 
 	const tokenChunkLength = 400
-	srvConf := config.AuthToken.Services[service] // we already validated the service name
-	// always send a batch; if we don't we have to try and fit service name, URL,
+	// always send a batch; if we don't we have to try and fit service name
 	// and the entire token on the same line
-	batchID := rb.StartNestedBatch(nil, caps.AuthTokenBatchType, service, srvConf.URL)
+	batchID := rb.StartNestedBatch(nil, caps.AuthTokenBatchType, service)
 	defer rb.EndNestedBatch(batchID)
 	for i := 0; i < len(token); i += tokenChunkLength {
 		end := min(len(token), i+tokenChunkLength)
 		chunk := token[i:end]
-		rb.Add(nil, "", "TOKEN", "GENERATE", "*", "*", chunk)
+		rb.Add(nil, "", "TOKEN", "GENERATE", "*", chunk)
 	}
 }
 
@@ -3949,7 +3948,7 @@ func tokenValidateHandler(server *Server, config *Config, client *Client, msg ir
 		return
 	}
 
-	if len(msg.Params) < 4 {
+	if len(msg.Params) < 3 {
 		rb.Add(nil, server.name, "FAIL", "TOKEN", "INVALID_PARAMS", "VALIDATE", client.t("Insufficient parameters"))
 		return
 	}
