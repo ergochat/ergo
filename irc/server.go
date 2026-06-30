@@ -53,6 +53,8 @@ const (
 	chanTypes = "#"
 
 	throttleMessage = "You have attempted to connect too many times within a short duration. Wait a while, and you will be able to connect."
+
+	rawIOWarningMessage = "This server is in debug mode and is logging all user I/O. If you do not wish for everything you send to be readable by the server owner(s), please disconnect."
 )
 
 var (
@@ -522,6 +524,9 @@ func (server *Server) playRegistrationBurst(session *Session) {
 	if d.account != "" && session.capabilities.Has(caps.Persistence) {
 		reportPersistenceStatus(c, rb, false)
 	}
+	if session.capabilities.Has(caps.AuthToken) {
+		tokenServicelistHandler(server, config, c, rb)
+	}
 	server.Lusers(c, rb)
 	server.MOTD(c, rb)
 	rb.Send(true)
@@ -534,7 +539,7 @@ func (server *Server) playRegistrationBurst(session *Session) {
 	c.attemptAutoOper(session)
 
 	if server.logger.IsLoggingRawIO() {
-		session.Send(nil, c.server.name, "NOTICE", d.nick, c.t("This server is in debug mode and is logging all user I/O. If you do not wish for everything you send to be readable by the server owner(s), please disconnect."))
+		session.Send(nil, c.server.name, "NOTICE", d.nick, c.t(rawIOWarningMessage))
 	}
 }
 
@@ -901,8 +906,10 @@ func (server *Server) applyConfig(config *Config) (err error) {
 
 	// set RPL_ISUPPORT
 	var newISupportReplies [][]string
+	var authTokenDiff [][]string
 	if oldConfig != nil {
 		newISupportReplies = oldConfig.Server.isupport.GetDifference(&config.Server.isupport)
+		authTokenDiff = oldConfig.AuthToken.GetDifference(config.AuthToken)
 	}
 
 	if len(config.Server.ProxyAllowedFrom) != 0 {
@@ -917,21 +924,25 @@ func (server *Server) applyConfig(config *Config) (err error) {
 		sdnotify.Ready()
 	}
 
-	if !initial {
-		// send 005 updates (somewhat rare)
-		if len(newISupportReplies) != 0 {
-			for _, sClient := range server.clients.AllClients() {
-				for _, session := range sClient.Sessions() {
-					rb := NewResponseBuffer(session)
+	if !initial && (len(newISupportReplies) > 0 || len(authTokenDiff) > 0) {
+		for _, sClient := range server.clients.AllClients() {
+			for _, session := range sClient.Sessions() {
+				rb := NewResponseBuffer(session)
+				if len(newISupportReplies) > 0 {
 					server.sendRplISupportLines(sClient, rb, newISupportReplies)
-					rb.Send(false)
 				}
+				if len(authTokenDiff) > 0 && session.capabilities.Has(caps.AuthToken) {
+					for _, line := range authTokenDiff {
+						rb.Add(nil, server.name, "TOKEN", line...)
+					}
+				}
+				rb.Send(false)
 			}
 		}
 
 		if sendRawOutputNotice {
 			for _, sClient := range server.clients.AllClients() {
-				sClient.Notice(sClient.t("This server is in debug mode and is logging all user I/O. If you do not wish for everything you send to be readable by the server owner(s), please disconnect."))
+				sClient.Notice(sClient.t(rawIOWarningMessage))
 			}
 		}
 	}

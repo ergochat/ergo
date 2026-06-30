@@ -11,11 +11,10 @@ import (
 
 // Command represents a command accepted from a client.
 type Command struct {
-	handler        func(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool
-	usablePreReg   bool
-	allowedInBatch bool // allowed in client-to-server batches
-	minParams      int
-	capabs         []string
+	handler      func(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool
+	usablePreReg bool
+	minParams    int
+	capabs       []string
 }
 
 // resolveCommand returns the command to execute in response to a user input line.
@@ -56,9 +55,15 @@ func (cmd *Command) Run(server *Server, client *Client, session *Session, msg ir
 			rb.Add(nil, server.name, ERR_NEEDMOREPARAMS, client.Nick(), msg.Command, rb.target.t("Not enough parameters"))
 			return false
 		}
-		if session.batch.label != "" && !cmd.allowedInBatch {
+		// C2S batch restrictions, custom per C2S batch type:
+		if session.multilineBatch.label != "" && !(msg.Command == "BATCH" || msg.Command == "PRIVMSG" || msg.Command == "NOTICE") {
 			rb.Add(nil, server.name, "FAIL", "BATCH", "MULTILINE_INVALID", client.t("Command not allowed during a multiline batch"))
 			session.EndMultilineBatch("")
+			return false
+		}
+		if session.tokenValidateBatch != nil && !(msg.Command == "BATCH" || msg.Command == "TOKEN") {
+			rb.Add(nil, server.name, "FAIL", "BATCH", "INVALID_PARAMS", client.t("Command not allowed during a TOKEN VALIDATE batch"))
+			session.tokenValidateBatch = nil
 			return false
 		}
 
@@ -112,9 +117,8 @@ func init() {
 			minParams:    0,
 		},
 		"BATCH": {
-			handler:        batchHandler,
-			minParams:      1,
-			allowedInBatch: true,
+			handler:   batchHandler,
+			minParams: 1,
 		},
 		"CAP": {
 			handler:      capHandler,
@@ -236,9 +240,8 @@ func init() {
 			minParams:    1,
 		},
 		"NOTICE": {
-			handler:        messageHandler,
-			minParams:      2,
-			allowedInBatch: true,
+			handler:   messageHandler,
+			minParams: 2,
 		},
 		"NPC": {
 			handler:   npcHandler,
@@ -276,18 +279,33 @@ func init() {
 			minParams:    1,
 		},
 		"PRIVMSG": {
-			handler:        messageHandler,
-			minParams:      2,
-			allowedInBatch: true,
+			handler:   messageHandler,
+			minParams: 2,
 		},
-		"RELAYMSG": {
-			handler:   relaymsgHandler,
-			minParams: 3,
+		"QUIT": {
+			handler:      quitHandler,
+			usablePreReg: true,
+			minParams:    0,
+		},
+		"REDACT": {
+			handler:   redactHandler,
+			minParams: 2,
 		},
 		"REGISTER": {
 			handler:      registerHandler,
 			minParams:    3,
 			usablePreReg: true,
+		},
+
+		"REHASH": {
+			handler:   rehashHandler,
+			minParams: 0,
+			capabs:    []string{"rehash"},
+		},
+
+		"RELAYMSG": {
+			handler:   relaymsgHandler,
+			minParams: 3,
 		},
 		"RENAME": {
 			handler:   renameHandler,
@@ -323,23 +341,14 @@ func init() {
 			handler:   messageHandler,
 			minParams: 1,
 		},
-		"QUIT": {
-			handler:      quitHandler,
-			usablePreReg: true,
-			minParams:    0,
-		},
-		"REDACT": {
-			handler:   redactHandler,
-			minParams: 2,
-		},
-		"REHASH": {
-			handler:   rehashHandler,
-			minParams: 0,
-			capabs:    []string{"rehash"},
-		},
 		"TIME": {
 			handler:   timeHandler,
 			minParams: 0,
+		},
+		"TOKEN": {
+			handler:      tokenHandler,
+			minParams:    1,
+			usablePreReg: true,
 		},
 		"TOPIC": {
 			handler:   topicHandler,

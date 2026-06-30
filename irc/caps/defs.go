@@ -7,7 +7,7 @@ package caps
 
 const (
 	// number of recognized capabilities:
-	numCapabs = 38
+	numCapabs = 39
 	// length of the uint32 array that represents the bitset:
 	bitsetLen = 2
 )
@@ -40,6 +40,10 @@ const (
 	// AccountRegistration is the draft IRCv3 capability named "draft/account-registration":
 	// https://github.com/ircv3/ircv3-specifications/pull/435
 	AccountRegistration Capability = iota
+
+	// AuthToken is the proposed IRCv3 capability named "draft/authtoken":
+	// https://github.com/ircv3/ircv3-specifications/pull/602
+	AuthToken Capability = iota
 
 	// ChannelRename is the draft IRCv3 capability named "draft/channel-rename":
 	// https://ircv3.net/specs/extensions/channel-rename
@@ -176,6 +180,7 @@ var (
 		"cap-notify",
 		"chghost",
 		"draft/account-registration",
+		"draft/authtoken",
 		"draft/channel-rename",
 		"draft/chathistory",
 		"draft/event-playback",

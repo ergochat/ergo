@@ -627,6 +627,8 @@ type Config struct {
 		Services map[string]jwt.JwtServiceConfig `yaml:"services"`
 	}
 
+	AuthToken jwt.AuthTokensConfig `yaml:"authtoken"`
+
 	Languages struct {
 		Enabled bool
 		Path    string
@@ -1005,7 +1007,7 @@ func (config *Config) processExtjwt() (err error) {
 	// first process the default service, which may be disabled
 	err = config.Extjwt.Default.Postprocess()
 	if err != nil {
-		return
+		return fmt.Errorf("invalid extjwt config for default service: %w", err)
 	}
 	// now process the named services. it is an error if any is disabled
 	// also, normalize the service names to lowercase
@@ -1013,7 +1015,7 @@ func (config *Config) processExtjwt() (err error) {
 	for service, sConf := range config.Extjwt.Services {
 		err := sConf.Postprocess()
 		if err != nil {
-			return err
+			return fmt.Errorf("invalid extjwt config for service %s: %w", service, err)
 		}
 		if !sConf.Enabled() {
 			return fmt.Errorf("no keys enabled for extjwt service %s", service)
@@ -1800,6 +1802,13 @@ func LoadConfig(filename string) (config *Config, err error) {
 		return nil, err
 	}
 
+	if err = config.AuthToken.Postprocess(); err != nil {
+		return nil, err
+	}
+	if !config.AuthToken.Enabled {
+		config.Server.supportedCaps.Disable(caps.AuthToken)
+	}
+
 	if config.WebPush.Enabled {
 		if config.Accounts.Multiclient.AlwaysOn == PersistentDisabled {
 			return nil, fmt.Errorf("Cannot enable webpush if always-on is disabled")
@@ -1939,6 +1948,10 @@ func (config *Config) generateISupport() (err error) {
 
 	if config.Accounts.RequireSasl.Enabled {
 		isupport.Add("draft/ACCOUNTREQUIRED", "")
+	}
+
+	if config.AuthToken.Enabled {
+		isupport.Add(caps.AuthToken005, "")
 	}
 
 	for key, value := range config.Server.AdditionalISupport {
