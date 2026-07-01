@@ -592,6 +592,9 @@ func batchHandlerMultiline(server *Server, client *Client, msg ircmsg.Message, r
 				rb.Label = ""
 			}
 		}
+		if fail {
+			rb.session.EndMultilineBatch("")
+		}
 	} else if tag[0] == '-' {
 		batch, err := rb.session.EndMultilineBatch(tag[1:])
 		fail = (err != nil)
@@ -609,7 +612,6 @@ func batchHandlerMultiline(server *Server, client *Client, msg ircmsg.Message, r
 	}
 
 	if fail {
-		rb.session.EndMultilineBatch("")
 		if sendErrors {
 			rb.Add(nil, server.name, "FAIL", "BATCH", "MULTILINE_INVALID", client.t("Invalid multiline batch"))
 		}
