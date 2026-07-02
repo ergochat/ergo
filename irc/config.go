@@ -1805,7 +1805,9 @@ func LoadConfig(filename string) (config *Config, err error) {
 	if err = config.AuthToken.Postprocess(); err != nil {
 		return nil, err
 	}
-	if !config.AuthToken.Enabled {
+	if config.AuthToken.Enabled {
+		config.Server.capValues[caps.AuthToken] = "client-batch"
+	} else {
 		config.Server.supportedCaps.Disable(caps.AuthToken)
 	}
 
