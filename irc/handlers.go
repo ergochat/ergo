@@ -719,6 +719,27 @@ func capHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 		}
 	}
 
+	// sendCapStringLines is like sendCapLines but for echoing back a raw cap string
+	// (used for NAK and ACK). Long cap strings are split across multiple lines
+	// to avoid truncation at the 512-byte line limit (#2411).
+	sendCapStringLines := func(capSubCommand, rawCaps string) {
+		version := rb.session.capVersion
+		// :server.name CAP nickname <subcmd> * :<caps>\r\n
+		// 1           [5  ]        1  [subcmd+1 ]  [4 ]  <- non-terminal (with *)
+		// :server.name CAP nickname <subcmd> :<caps>\r\n
+		// 1           [5  ]        1  [subcmd+1 ]  [2 ]  <- terminal
+		maxLen := (MaxLineLen - 2) - 1 - len(server.name) - 5 - len(details.nick) - 1 - len(capSubCommand) - 4
+		tokens := strings.Fields(rawCaps)
+		capLines := utils.BuildTokenLines(maxLen, tokens, " ")
+		for i, capStr := range capLines {
+			if version >= caps.Cap302 && i < len(capLines)-1 {
+				rb.Add(nil, server.name, "CAP", details.nick, capSubCommand, "*", capStr)
+			} else {
+				rb.Add(nil, server.name, "CAP", details.nick, capSubCommand, capStr)
+			}
+		}
+	}
+
 	switch subCommand {
 	case "LS":
 		if !client.registered {
@@ -747,7 +768,7 @@ func capHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 		// every offered capability. during registration, requesting it produces a quit,
 		// otherwise just a CAP NAK
 		if badCaps || (toAdd.Has(caps.Nope) && client.registered) {
-			rb.Add(nil, server.name, "CAP", details.nick, "NAK", capString)
+			sendCapStringLines("NAK", capString)
 			return false
 		} else if toAdd.Has(caps.Nope) && !client.registered {
 			client.Quit(fmt.Sprintf(client.t("Requesting the %s client capability is forbidden"), caps.Nope.Name()), rb.session, nil)
@@ -756,7 +777,7 @@ func capHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 
 		rb.session.capabilities.Union(toAdd)
 		rb.session.capabilities.Subtract(toRemove)
-		rb.Add(nil, server.name, "CAP", details.nick, "ACK", capString)
+		sendCapStringLines("ACK", capString)
 
 	case "END":
 		if !client.registered {
