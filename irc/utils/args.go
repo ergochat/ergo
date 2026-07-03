@@ -6,6 +6,7 @@ package utils
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -16,6 +17,14 @@ const (
 
 var (
 	ErrInvalidParams = errors.New("Invalid parameters")
+
+	/*
+		batch specification says:
+		The reference tag MUST be treated as an opaque identifier.
+		Reference tag MUST contain only ASCII letters, numbers, and/or hyphen,
+		and MUST be case-sensitive.
+	*/
+	batchTagRegexp = regexp.MustCompile(`^[A-Za-z0-9-]+$`)
 )
 
 func StringToBool(str string) (result bool, err error) {
@@ -57,4 +66,8 @@ func BoolDefaultTrue(value *bool) bool {
 		return *value
 	}
 	return true
+}
+
+func IsValidBatchTag(tag string) bool {
+	return batchTagRegexp.MatchString(tag)
 }

@@ -548,7 +548,8 @@ func dispatchAwayNotify(client *Client, awayMessage string) {
 // BATCH {+,-}reference-tag type [params...]
 func batchHandler(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
 	tag := msg.Params[0]
-	if len(tag) != 0 {
+	tagValid := len(tag) != 0 && utils.IsValidBatchTag(tag[1:])
+	if tagValid {
 		switch tag[0] {
 		case '+':
 			// can't open a new C2S batch with one already open, even of a different type
@@ -570,7 +571,13 @@ func batchHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respon
 			}
 		}
 	}
-	failBatch(server, rb)
+	// failure cases
+	if tagValid {
+		// generic failure with INVALID_PARAMS
+		failBatch(server, rb)
+	} else {
+		rb.Add(nil, server.name, "FAIL", "BATCH", "INVALID_REFTAG", utils.SafeErrorParam(tag), "Provided batch reference tag contains disallowed characters")
+	}
 	// reset any local state
 	rb.session.EndMultilineBatch("")
 	rb.session.tokenValidateBatch = nil
