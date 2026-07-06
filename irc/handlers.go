@@ -3353,7 +3353,7 @@ func metadataRegisteredHandler(client *Client, config *Config, subcommand string
 
 			config := client.server.Config()
 			if failMsg := metadataValueIsEvil(config, key, value); failMsg != "" {
-				rb.Add(nil, server.name, "FAIL", "METADATA", "INVALID_VALUE", client.t(failMsg))
+				rb.Add(nil, server.name, "FAIL", "METADATA", "INVALID_VALUE", utils.SafeErrorParam(key), client.t(failMsg))
 				return
 			}
 
@@ -3470,7 +3470,7 @@ func metadataUnregisteredHandler(client *Client, config *Config, subcommand stri
 				return
 			}
 			if failMsg := metadataValueIsEvil(config, key, value); failMsg != "" {
-				rb.Add(nil, server.name, "FAIL", "METADATA", "INVALID_VALUE", client.t(failMsg))
+				rb.Add(nil, server.name, "FAIL", "METADATA", "INVALID_VALUE", utils.SafeErrorParam(key), client.t(failMsg))
 				return
 			}
 			rb.session.metadataPreregVals[key] = value
