@@ -67,7 +67,7 @@ func (manager *MonitorManager) AlertAbout(nick, cfnick string, online bool, clie
 		if metadata != nil && session.capabilities.Has(caps.Metadata) {
 			for key := range session.MetadataSubscriptions() {
 				if val, ok := metadata[key]; ok {
-					session.Send(nil, client.server.name, "METADATA", nick, key, "*", val)
+					session.Send(nil, client.server.name, RPL_KEYVALUE, "*", nick, key, "*", val)
 				}
 			}
 		}
@@ -129,7 +129,9 @@ func (manager *MonitorManager) RemoveAll(session *Session) {
 func (manager *MonitorManager) List(session *Session) (nicks []string) {
 	manager.RLock()
 	defer manager.RUnlock()
-	for _, nick := range manager.watching[session] {
+	watching := manager.watching[session]
+	nicks = make([]string, 0, len(watching))
+	for _, nick := range watching {
 		nicks = append(nicks, nick)
 	}
 	return nicks

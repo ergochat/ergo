@@ -765,6 +765,12 @@ func capHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 		rb.session.capabilities.Subtract(toRemove)
 		rb.Add(nil, server.name, "CAP", details.nick, "ACK", capString)
 
+		// XXX compatibility hack, if draft/metadata-2 was requested, silently enable draft/metadata-3
+		// this way we only have to check for one cap at runtime
+		if rb.session.capabilities.Has(caps.MetadataDraft2) {
+			rb.session.capabilities.Add(caps.Metadata)
+		}
+
 	case "END":
 		if !client.registered {
 			rb.session.capState = caps.NegotiatedState
@@ -3275,7 +3281,7 @@ func metadataHandler(server *Server, client *Client, msg ircmsg.Message, rb *Res
 			return metadataUnregisteredHandler(client, config, subcommand, msg.Params, rb)
 		}
 	default:
-		rb.Add(nil, server.name, "FAIL", "METADATA", "SUBCOMMAND_INVALID", utils.SafeErrorParam(msg.Params[1]), client.t("Invalid subcommand"))
+		rb.Add(nil, server.name, "FAIL", "METADATA", "INVALID_PARAMS", utils.SafeErrorParam(msg.Params[1]), client.t("Invalid subcommand"))
 		return
 	}
 }
@@ -3296,7 +3302,10 @@ func metadataRegisteredHandler(client *Client, config *Config, subcommand string
 	var targetObj MetadataHaver
 	var targetClient *Client
 	var targetChannel *Channel
-	if strings.HasPrefix(target, "#") {
+	var syncAll bool
+	if subcommand == "sync" && strings.EqualFold(target, caps.MetadataSyncAllTarget) {
+		syncAll = true
+	} else if strings.HasPrefix(target, "#") {
 		targetChannel = server.channels.Get(target)
 		if targetChannel != nil {
 			targetObj = targetChannel
@@ -3309,7 +3318,7 @@ func metadataRegisteredHandler(client *Client, config *Config, subcommand string
 			target = targetClient.Nick() // canonicalize case
 		}
 	}
-	if targetObj == nil {
+	if !syncAll && targetObj == nil {
 		rb.Add(nil, server.name, "FAIL", "METADATA", "INVALID_TARGET", target, client.t("Invalid metadata target"))
 		return
 	}
@@ -3318,7 +3327,7 @@ func metadataRegisteredHandler(client *Client, config *Config, subcommand string
 	case "set":
 		key := params[2]
 		if metadataKeyIsEvil(key) {
-			rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_INVALID", utils.SafeErrorParam(key), client.t("Invalid key name"))
+			rb.Add(nil, server.name, "FAIL", "METADATA", "INVALID_KEY", utils.SafeErrorParam(key), client.t("Invalid key name"))
 			return
 		}
 
@@ -3339,12 +3348,12 @@ func metadataRegisteredHandler(client *Client, config *Config, subcommand string
 			}
 		}
 
-		if len(params) > 3 {
+		if len(params) > 3 && params[3] != "" {
 			value := params[3]
 
 			config := client.server.Config()
 			if failMsg := metadataValueIsEvil(config, key, value); failMsg != "" {
-				rb.Add(nil, server.name, "FAIL", "METADATA", "VALUE_INVALID", client.t(failMsg))
+				rb.Add(nil, server.name, "FAIL", "METADATA", "INVALID_VALUE", client.t(failMsg))
 				return
 			}
 
@@ -3360,11 +3369,10 @@ func metadataRegisteredHandler(client *Client, config *Config, subcommand string
 				notifySubscribers(server, rb.session, targetObj, target, key, value, true)
 			}
 		} else {
-			if updated := targetObj.DeleteMetadata(key); updated {
+			updated := targetObj.DeleteMetadata(key)
+			rb.Add(nil, server.name, RPL_KEYNOTSET, client.Nick(), target, key, client.t("Key deleted"))
+			if updated {
 				notifySubscribers(server, rb.session, targetObj, target, key, "", false)
-				rb.Add(nil, server.name, RPL_KEYNOTSET, client.Nick(), target, key, client.t("Key deleted"))
-			} else {
-				rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_NOT_SET", utils.SafeErrorParam(key), client.t("Metadata key not set"))
 			}
 		}
 
@@ -3389,7 +3397,7 @@ func metadataRegisteredHandler(client *Client, config *Config, subcommand string
 
 		for _, key := range params[2:] {
 			if metadataKeyIsEvil(key) {
-				rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_INVALID", utils.SafeErrorParam(key), client.t("Invalid key name"))
+				rb.Add(nil, server.name, "FAIL", "METADATA", "INVALID_KEY", utils.SafeErrorParam(key), client.t("Invalid key name"))
 				continue
 			}
 
@@ -3412,6 +3420,10 @@ func metadataRegisteredHandler(client *Client, config *Config, subcommand string
 		playMetadataList(rb, client.Nick(), target, targetObj.ListMetadata())
 
 	case "sync":
+		if syncAll {
+			syncAllMetadata(server, rb)
+			return
+		}
 		if !metadataCanISeeThisTarget(client, targetObj) {
 			noKeyPerms("*")
 			return
@@ -3446,10 +3458,10 @@ func metadataUnregisteredHandler(client *Client, config *Config, subcommand stri
 		}
 		key := params[2]
 		if metadataKeyIsEvil(key) {
-			rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_INVALID", utils.SafeErrorParam(key), client.t("Invalid key name"))
+			rb.Add(nil, server.name, "FAIL", "METADATA", "INVALID_KEY", utils.SafeErrorParam(key), client.t("Invalid key name"))
 			return
 		}
-		if len(params) >= 4 {
+		if len(params) > 3 && params[3] != "" {
 			value := params[3]
 			// enforce a sane limit on prereg keys. we don't need to enforce the exact limit,
 			// that will be done when applying the buffer after registration
@@ -3458,20 +3470,15 @@ func metadataUnregisteredHandler(client *Client, config *Config, subcommand stri
 				return
 			}
 			if failMsg := metadataValueIsEvil(config, key, value); failMsg != "" {
-				rb.Add(nil, server.name, "FAIL", "METADATA", "VALUE_INVALID", client.t(failMsg))
+				rb.Add(nil, server.name, "FAIL", "METADATA", "INVALID_VALUE", client.t(failMsg))
 				return
 			}
 			rb.session.metadataPreregVals[key] = value
 			rb.Add(nil, server.name, RPL_KEYVALUE, "*", "*", key, "*", value)
 		} else {
 			// unset
-			_, present := rb.session.metadataPreregVals[key]
-			if present {
-				delete(rb.session.metadataPreregVals, key)
-				rb.Add(nil, server.name, RPL_KEYNOTSET, "*", "*", key, client.t("Key deleted"))
-			} else {
-				rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_NOT_SET", utils.SafeErrorParam(key), client.t("Metadata key not set"))
-			}
+			delete(rb.session.metadataPreregVals, key)
+			rb.Add(nil, server.name, RPL_KEYNOTSET, "*", "*", key, client.t("Key deleted"))
 		}
 	case "list":
 		playMetadataList(rb, "*", "*", rb.session.metadataPreregVals)
@@ -3480,7 +3487,7 @@ func metadataUnregisteredHandler(client *Client, config *Config, subcommand stri
 		rb.session.metadataPreregVals = nil
 		playMetadataList(rb, "*", "*", oldMetadata)
 	case "sync":
-		rb.Add(nil, server.name, RPL_METADATASYNCLATER, "*", utils.SafeErrorParam(params[1]), "60") // lol
+		rb.Add(nil, server.name, RPL_METADATASYNCLATER, "*", utils.SafeErrorParam(params[1]), "60", "Try again later") // lol
 	}
 	return false
 }
@@ -3494,22 +3501,26 @@ func metadataSubsHandler(client *Client, subcommand string, params []string, rb 
 		keys := params[2:]
 		for _, key := range keys {
 			if metadataKeyIsEvil(key) {
-				rb.Add(nil, server.name, "FAIL", "METADATA", "KEY_INVALID", utils.SafeErrorParam(key), client.t("Invalid key name"))
+				rb.Add(nil, server.name, "FAIL", "METADATA", "INVALID_KEY", utils.SafeErrorParam(key), client.t("Invalid key name"))
 				return
 			}
 		}
 		added, err := rb.session.SubscribeTo(keys...)
 		if err == errMetadataTooManySubs {
 			bad := keys[len(added)] // get the key that broke the camel's back
-			rb.Add(nil, server.name, "FAIL", "METADATA", "TOO_MANY_SUBS", utils.SafeErrorParam(bad), client.t("Too many subscriptions"))
+			rb.Add(nil, server.name, "FAIL", "METADATA", "LIMIT_REACHED", utils.SafeErrorParam(bad), client.t("Too many subscriptions"))
 		}
 
-		lineLength := MaxLineLen - len(server.name) - len(RPL_METADATASUBOK) - len(client.Nick()) - 10
-
+		nick := client.Nick()
+		lineLength := MaxLineLen - len(server.name) - len(RPL_METADATASUBOK) - len(nick) - 10
 		chunked := utils.ChunkifyParams(slices.Values(added), lineLength)
 		for _, line := range chunked {
-			params := append([]string{client.Nick()}, line...)
+			params := append([]string{nick}, line...)
 			rb.Add(nil, server.name, RPL_METADATASUBOK, params...)
+		}
+
+		if client.registered && len(added) != 0 {
+			rb.Add(nil, server.name, RPL_METADATASYNCLATER, "*", caps.MetadataSyncAllTarget, "0", client.t("Try again later"))
 		}
 
 	case "unsub":

@@ -59,9 +59,9 @@ func broadcastMetadataUpdate(server *Server, sessions iter.Seq[*Session], origin
 		}
 
 		if set {
-			s.Send(nil, server.name, "METADATA", target, key, "*", value)
+			s.Send(nil, server.name, RPL_KEYVALUE, "*", target, key, "*", value)
 		} else {
-			s.Send(nil, server.name, "METADATA", target, key, "*")
+			s.Send(nil, server.name, RPL_KEYNOTSET, "*", target, key, s.client.t("Key deleted"))
 		}
 	}
 }
@@ -75,7 +75,7 @@ func syncClientMetadata(server *Server, rb *ResponseBuffer, target *Client) {
 	for k, v := range values {
 		if subs.Has(k) {
 			visibility := "*"
-			rb.Add(nil, server.name, "METADATA", target.Nick(), k, visibility, v)
+			rb.Add(nil, server.name, RPL_KEYVALUE, "*", target.Nick(), k, visibility, v)
 		}
 	}
 }
@@ -91,7 +91,7 @@ func syncChannelMetadata(server *Server, rb *ResponseBuffer, channel *Channel) {
 	for k, v := range values {
 		if subs.Has(k) {
 			visibility := "*"
-			rb.Add(nil, server.name, "METADATA", chname, k, visibility, v)
+			rb.Add(nil, server.name, RPL_KEYVALUE, "*", chname, k, visibility, v)
 		}
 	}
 
@@ -100,8 +100,59 @@ func syncChannelMetadata(server *Server, rb *ResponseBuffer, channel *Channel) {
 		for k, v := range values {
 			if subs.Has(k) {
 				visibility := "*"
-				rb.Add(nil, server.name, "METADATA", client.Nick(), k, visibility, v)
+				rb.Add(nil, server.name, RPL_KEYVALUE, "*", client.Nick(), k, visibility, v)
 			}
+		}
+	}
+}
+
+func syncAllMetadata(server *Server, rb *ResponseBuffer) {
+	client := rb.session.client
+
+	batchID := rb.StartNestedBatch(nil, "metadata", "*ALL")
+	defer rb.EndNestedBatch(batchID)
+
+	subs := rb.session.MetadataSubscriptions()
+	if len(subs) == 0 {
+		return
+	}
+
+	// deduplicate friends across channels
+	friendsWithMetadata := make(map[*Client]map[string]string)
+	// include the client even if they have no channels
+	friendsWithMetadata[client] = client.ListSubscribedMetadata(subs)
+
+	visibility := "*"
+
+	for _, channel := range client.Channels() {
+		chname := channel.Name()
+		values := channel.ListSubscribedMetadata(subs)
+		for k, v := range values {
+			rb.Add(nil, server.name, RPL_KEYVALUE, "*", chname, k, visibility, v)
+		}
+
+		for _, member := range channel.Members() {
+			if _, ok := friendsWithMetadata[member]; !ok {
+				friendsWithMetadata[member] = member.ListSubscribedMetadata(subs)
+			}
+		}
+	}
+
+	for _, watchedNick := range server.monitorManager.List(rb.session) {
+		if watched := server.clients.Get(watchedNick); watched != nil {
+			if _, ok := friendsWithMetadata[watched]; !ok {
+				friendsWithMetadata[watched] = watched.ListSubscribedMetadata(subs)
+			}
+		}
+	}
+
+	for friend, friendMetadata := range friendsWithMetadata {
+		if friendMetadata == nil {
+			continue
+		}
+		nick := friend.Nick()
+		for k, v := range friendMetadata {
+			rb.Add(nil, server.name, RPL_KEYVALUE, "*", nick, k, visibility, v)
 		}
 	}
 }
@@ -131,7 +182,7 @@ func playMetadataVerbBatch(rb *ResponseBuffer, target string, values map[string]
 
 	for key, val := range values {
 		visibility := "*"
-		rb.Add(nil, rb.session.client.server.name, "METADATA", target, key, visibility, val)
+		rb.Add(nil, rb.session.client.server.name, RPL_KEYVALUE, "*", target, key, visibility, val)
 	}
 }
 
@@ -144,6 +195,12 @@ func metadataKeyIsEvil(key string) bool {
 func metadataValueIsEvil(config *Config, key, value string) (failMsg string) {
 	if !globalUtf8EnforcementSetting && !utf8.ValidString(value) {
 		return `METADATA values must be UTF-8`
+	}
+
+	if value == "" {
+		// we should never hit this case,
+		// since the command handlers should interpret empty value as "delete"
+		return `METADATA value MUST NOT be empty`
 	}
 
 	if len(key)+len(value) > maxCombinedMetadataLenBytes ||
