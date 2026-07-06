@@ -64,7 +64,9 @@ func (manager *MonitorManager) AlertAbout(nick, cfnick string, online bool, clie
 	for _, session := range watchers {
 		session.Send(nil, session.client.server.name, command, session.client.Nick(), nick)
 
-		if metadata != nil && session.capabilities.Has(caps.Metadata) {
+		if online && session.capabilities.Has(caps.Metadata) {
+			// even if there is no user metadata, or no subscriptions,
+			// we still need to send an empty metadata batch alongside RPL_MONONLINE
 			subs := session.MetadataSubscriptions()
 			rb := NewResponseBuffer(session)
 			batchID := rb.StartNestedBatch(nil, "metadata", nick)
