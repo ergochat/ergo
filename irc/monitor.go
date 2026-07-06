@@ -65,11 +65,16 @@ func (manager *MonitorManager) AlertAbout(nick, cfnick string, online bool, clie
 		session.Send(nil, session.client.server.name, command, session.client.Nick(), nick)
 
 		if metadata != nil && session.capabilities.Has(caps.Metadata) {
-			for key := range session.MetadataSubscriptions() {
+			subs := session.MetadataSubscriptions()
+			rb := NewResponseBuffer(session)
+			batchID := rb.StartNestedBatch(nil, "metadata", nick)
+			for key := range subs {
 				if val, ok := metadata[key]; ok {
-					session.Send(nil, client.server.name, RPL_KEYVALUE, "*", nick, key, "*", val)
+					rb.Add(nil, client.server.name, RPL_KEYVALUE, "*", nick, key, "*", val)
 				}
 			}
+			rb.EndNestedBatch(batchID)
+			rb.Send(false)
 		}
 	}
 }

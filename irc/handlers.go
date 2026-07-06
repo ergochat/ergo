@@ -3360,7 +3360,7 @@ func metadataRegisteredHandler(client *Client, config *Config, subcommand string
 			updated, err := targetObj.SetMetadata(key, value, config.Metadata.MaxKeys)
 			if err != nil {
 				// errLimitExceeded is the only possible error
-				rb.Add(nil, server.name, "FAIL", "METADATA", "LIMIT_REACHED", client.t("Too many metadata keys"))
+				rb.Add(nil, server.name, "FAIL", "METADATA", "LIMIT_REACHED", target, strconv.Itoa(config.Metadata.MaxKeys), client.t("Too many metadata keys"))
 				return
 			}
 			// echo the value to the client whether or not there was a real update
@@ -3466,7 +3466,7 @@ func metadataUnregisteredHandler(client *Client, config *Config, subcommand stri
 			// enforce a sane limit on prereg keys. we don't need to enforce the exact limit,
 			// that will be done when applying the buffer after registration
 			if len(rb.session.metadataPreregVals) > config.Metadata.MaxKeys {
-				rb.Add(nil, server.name, "FAIL", "METADATA", "LIMIT_REACHED", client.t("Too many metadata keys"))
+				rb.Add(nil, server.name, "FAIL", "METADATA", "LIMIT_REACHED", "*", strconv.Itoa(config.Metadata.MaxKeys), client.t("Too many metadata keys"))
 				return
 			}
 			if failMsg := metadataValueIsEvil(config, key, value); failMsg != "" {
@@ -3508,7 +3508,8 @@ func metadataSubsHandler(client *Client, subcommand string, params []string, rb 
 		added, err := rb.session.SubscribeTo(keys...)
 		if err == errMetadataTooManySubs {
 			bad := keys[len(added)] // get the key that broke the camel's back
-			rb.Add(nil, server.name, "FAIL", "METADATA", "LIMIT_REACHED", utils.SafeErrorParam(bad), client.t("Too many subscriptions"))
+			limit := strconv.Itoa(server.Config().Metadata.MaxSubs)
+			rb.Add(nil, server.name, "FAIL", "METADATA", "LIMIT_REACHED", utils.SafeErrorParam(bad), limit, client.t("Too many subscriptions"))
 		}
 
 		nick := client.Nick()
