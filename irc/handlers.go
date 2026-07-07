@@ -700,20 +700,16 @@ func capHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 		}
 	}
 
-	// budget for the token payload of a `:server.name CAP nickname <subcmd> * :<tokens>` line
-	capMaxLen := func(replySubCommand string) int {
-		// :server.name CAP nickname LS * :<tokens>\r\n
-		// 1           [5  ]        1  [4 ]        [2 ]
-		return (MaxLineLen - 2) - 1 - len(server.name) - 5 - len(details.nick) - 1 - len(replySubCommand) - 4
-	}
-
 	sendCapLines := func(cset *caps.Set, values caps.Values) {
 		version := rb.session.capVersion
 		// we're working around two bugs:
 		// 1. WeeChat 1.4 won't accept the CAP reply unless it contains the server.name source
 		// 2. old versions of Kiwi and The Lounge can't parse multiline CAP LS 302 (#661),
 		// so try as hard as possible to get the response to fit on one line.
-		capLines := cset.Strings(version, values, capMaxLen(subCommand))
+		// :server.name CAP nickname LS * :<tokens>\r\n
+		// 1           [5  ]        1  [4 ]        [2 ]
+		maxLen := (MaxLineLen - 2) - 1 - len(server.name) - 5 - len(details.nick) - 1 - len(subCommand) - 4
+		capLines := cset.Strings(version, values, maxLen)
 		for i, capStr := range capLines {
 			if version >= caps.Cap302 && i < len(capLines)-1 {
 				rb.Add(nil, server.name, "CAP", details.nick, subCommand, "*", capStr)
@@ -723,22 +719,22 @@ func capHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 		}
 	}
 
-	// send a CAP ACK or NAK that echoes back the client-supplied cap string (#2411).
-	// the string can approach the 512-byte line limit, so split it across multiple
-	// lines rather than letting it be truncated. per the CAP negotiation spec, ACK
-	// may be spread across multiple lines (the client applies the change only after
-	// the final ACK); the `*` continuation marker is defined only for LS/LIST, so it
-	// is not used here.
+	// CAP ACK / CAP NAK may also overflow the 512-byte limit, so we may need
+	// to split it. Unlike LS / LIST, each ACK and NAK is processed independently
+	// and there is no line continuation form
 	sendCapReqResponse := func(response, capString string) {
+		// :server.name CAP nickname ACK :list of caps\r\n
+		maxLen := (MaxLineLen - 2) - 1 - len(server.name) - 5 - len(details.nick) - 6
+		if len(capString) <= maxLen {
+			rb.Add(nil, server.name, "CAP", details.nick, response, capString)
+			return
+		}
 		var t utils.TokenLineBuilder
-		t.Initialize(capMaxLen(response), " ")
+		t.Initialize(maxLen, " ")
 		for _, token := range strings.Fields(capString) {
 			t.Add(token)
 		}
 		capLines := t.Lines()
-		if capLines == nil {
-			capLines = []string{capString}
-		}
 		for _, capStr := range capLines {
 			rb.Add(nil, server.name, "CAP", details.nick, response, capStr)
 		}
