@@ -524,6 +524,9 @@ func (server *Server) playRegistrationBurst(session *Session) {
 	if !(rb.session.capabilities.Has(caps.ExtendedISupport) && rb.session.isupportSentPrereg) {
 		server.RplISupport(c, rb)
 	}
+	if session.capabilities.Has(caps.Whoami) {
+		rb.Add(nil, d.nickMask, "SETNAME", d.realname)
+	}
 	if session.capabilities.Has(caps.Metadata) {
 		playMetadataVerbBatch(rb, d.nick, c.ListMetadata())
 	}

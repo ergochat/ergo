@@ -255,6 +255,12 @@ CAPDEFS = [
         url="https://github.com/ircv3/ircv3-specifications/pull/613",
         standard="draft IRCv3",
     ),
+    CapDef(
+        identifier="Whoami",
+        name="draft/whoami",
+        url="https://github.com/ircv3/ircv3-specifications/pull/603",
+        standard="proposed IRCv3",
+    ),
 ]
 
 def validate_defs():
