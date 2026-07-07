@@ -733,7 +733,7 @@ func capHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 	sendCapReqResponse := func(response string) {
 		// :server.name CAP nickname ACK :list of caps\r\n
 		maxLen := (MaxLineLen - 2) - 1 - len(server.name) - 5 - len(details.nick) - 6
-		if len(capString) <= maxLen {
+		if len(capString) <= maxLen || len(capFields) == 0 {
 			rb.Add(nil, server.name, "CAP", details.nick, response, capString)
 			return
 		}
