@@ -7,7 +7,7 @@ package caps
 
 const (
 	// number of recognized capabilities:
-	numCapabs = 40
+	numCapabs = 41
 	// length of the uint32 array that represents the bitset:
 	bitsetLen = 2
 )
@@ -100,6 +100,10 @@ const (
 	// WebPush is the proposed IRCv3 capability named "draft/webpush":
 	// https://github.com/ircv3/ircv3-specifications/pull/471
 	WebPush Capability = iota
+
+	// Whoami is the proposed IRCv3 capability named "draft/whoami":
+	// https://github.com/ircv3/ircv3-specifications/pull/603
+	Whoami Capability = iota
 
 	// EchoMessage is the IRCv3 capability named "echo-message":
 	// https://ircv3.net/specs/extensions/echo-message-3.2.html
@@ -199,6 +203,7 @@ var (
 		"draft/read-marker",
 		"draft/relaymsg",
 		"draft/webpush",
+		"draft/whoami",
 		"echo-message",
 		"ergo.chat/nope",
 		"extended-join",
