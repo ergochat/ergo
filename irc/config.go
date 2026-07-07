@@ -1778,6 +1778,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 
 	if !config.Metadata.Enabled {
 		config.Server.supportedCaps.Disable(caps.Metadata)
+		config.Server.supportedCaps.Disable(caps.MetadataDraft2)
 	} else {
 		metadataValues := make([]string, 0, 4)
 		metadataValues = append(metadataValues, "before-connect")
@@ -1795,6 +1796,7 @@ func LoadConfig(filename string) (config *Config, err error) {
 			metadataValues = append(metadataValues, fmt.Sprintf("max-value-bytes=%d", config.Metadata.MaxValueBytes))
 		}
 		config.Server.capValues[caps.Metadata] = strings.Join(metadataValues, ",")
+		config.Server.capValues[caps.MetadataDraft2] = strings.Join(metadataValues, ",")
 	}
 
 	err = config.processExtjwt()

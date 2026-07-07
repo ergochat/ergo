@@ -64,12 +64,19 @@ func (manager *MonitorManager) AlertAbout(nick, cfnick string, online bool, clie
 	for _, session := range watchers {
 		session.Send(nil, session.client.server.name, command, session.client.Nick(), nick)
 
-		if metadata != nil && session.capabilities.Has(caps.Metadata) {
-			for key := range session.MetadataSubscriptions() {
+		if online && session.capabilities.Has(caps.Metadata) {
+			// even if there is no user metadata, or no subscriptions,
+			// we still need to send an empty metadata batch alongside RPL_MONONLINE
+			subs := session.MetadataSubscriptions()
+			rb := NewResponseBuffer(session)
+			batchID := rb.StartNestedBatch(nil, "metadata", nick)
+			for key := range subs {
 				if val, ok := metadata[key]; ok {
-					session.Send(nil, client.server.name, "METADATA", nick, key, "*", val)
+					rb.Add(nil, client.server.name, RPL_KEYVALUE, "*", nick, key, "*", val)
 				}
 			}
+			rb.EndNestedBatch(batchID)
+			rb.Send(false)
 		}
 	}
 }
@@ -129,7 +136,9 @@ func (manager *MonitorManager) RemoveAll(session *Session) {
 func (manager *MonitorManager) List(session *Session) (nicks []string) {
 	manager.RLock()
 	defer manager.RUnlock()
-	for _, nick := range manager.watching[session] {
+	watching := manager.watching[session]
+	nicks = make([]string, 0, len(watching))
+	for _, nick := range watching {
 		nicks = append(nicks, nick)
 	}
 	return nicks

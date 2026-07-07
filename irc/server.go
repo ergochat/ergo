@@ -478,6 +478,12 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 		server.handleAutojoins(session, config.Channels.AutoJoin)
 	}
 
+	if session.capabilities.Has(caps.Metadata) {
+		rb := NewResponseBuffer(session)
+		syncAllMetadata(server, rb)
+		rb.Send(true)
+	}
+
 	return false
 }
 

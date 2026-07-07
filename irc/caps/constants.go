@@ -70,6 +70,8 @@ const (
 	// authtoken draft: https://github.com/ircv3/ircv3-specifications/pull/602
 	AuthTokenBatchType = "draft/authtoken"
 	AuthToken005       = "draft/AUTHTOKEN"
+
+	MetadataSyncAllTarget = "*ALL"
 )
 
 func init() {
