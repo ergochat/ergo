@@ -30,3 +30,15 @@ func TestSafeErrorParam(t *testing.T) {
 	assertEqual(SafeErrorParam("#hi:there"), "#hi:there", t)
 	assertEqual(SafeErrorParam(""), "*", t)
 }
+
+func TestIsValidBatchTag(t *testing.T) {
+	assertEqual(IsValidBatchTag("-"), true, t)
+	assertEqual(IsValidBatchTag("1"), true, t)
+	assertEqual(IsValidBatchTag("x"), true, t)
+	assertEqual(IsValidBatchTag("9P5fxSwIXviY1YHHuejhaQ"), true, t)
+	assertEqual(IsValidBatchTag("0123456789-abcdef"), true, t)
+
+	assertEqual(IsValidBatchTag(""), false, t)
+	assertEqual(IsValidBatchTag("_"), false, t)
+	assertEqual(IsValidBatchTag("qt-KrJ5H6bNsaLr_mDE4QQ"), false, t)
+}

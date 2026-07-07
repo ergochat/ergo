@@ -923,6 +923,22 @@ func (channel *Channel) ListMetadata() map[string]string {
 	return maps.Clone(channel.metadata)
 }
 
+func (channel *Channel) ListSubscribedMetadata(subscriptions utils.HashSet[string]) (result map[string]string) {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+
+	for k, v := range channel.metadata {
+		if subscriptions.Has(k) {
+			if result == nil {
+				result = make(map[string]string)
+			}
+			result[k] = v
+		}
+	}
+
+	return result
+}
+
 func (channel *Channel) DeleteMetadata(key string) (updated bool) {
 	defer channel.MarkDirty(IncludeAllAttrs)
 
@@ -1030,6 +1046,22 @@ func (client *Client) ListMetadata() map[string]string {
 	defer client.stateMutex.RUnlock()
 
 	return maps.Clone(client.metadata)
+}
+
+func (client *Client) ListSubscribedMetadata(subscriptions utils.HashSet[string]) (result map[string]string) {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+
+	for k, v := range client.metadata {
+		if subscriptions.Has(k) {
+			if result == nil {
+				result = make(map[string]string)
+			}
+			result[k] = v
+		}
+	}
+
+	return result
 }
 
 func (client *Client) DeleteMetadata(key string) (updated bool) {

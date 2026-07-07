@@ -822,6 +822,11 @@ func (client *Client) performReattach(session *Session) {
 		rb.Send(true)
 	}
 	session.autoreplayMissedSince = time.Time{}
+	if session.capabilities.Has(caps.Metadata) {
+		rb := NewResponseBuffer(session)
+		syncAllMetadata(client.server, rb)
+		rb.Send(true)
+	}
 }
 
 func (client *Client) applyPreregMetadata(session *Session) {
