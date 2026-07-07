@@ -676,7 +676,6 @@ func capHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 	subCommand := strings.ToUpper(msg.Params[0])
 	toAdd := caps.NewSet()
 	toRemove := caps.NewSet()
-	var capString string
 
 	config := server.Config()
 	supportedCaps := config.Server.supportedCaps
@@ -687,10 +686,12 @@ func capHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 	}
 
 	badCaps := false
+	var capString string
+	var capFields []string
 	if len(msg.Params) > 1 {
 		capString = msg.Params[1]
-		strs := strings.Fields(capString)
-		for _, str := range strs {
+		capFields = strings.Fields(capString)
+		for _, str := range capFields {
 			remove := false
 			if str[0] == '-' {
 				str = str[1:]
@@ -729,7 +730,7 @@ func capHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 	// CAP ACK / CAP NAK may also overflow the 512-byte limit, so we may need
 	// to split it. Unlike LS / LIST, each ACK and NAK is processed independently
 	// and there is no line continuation form
-	sendCapReqResponse := func(response, capString string) {
+	sendCapReqResponse := func(response string) {
 		// :server.name CAP nickname ACK :list of caps\r\n
 		maxLen := (MaxLineLen - 2) - 1 - len(server.name) - 5 - len(details.nick) - 6
 		if len(capString) <= maxLen {
@@ -738,7 +739,7 @@ func capHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 		}
 		var t utils.TokenLineBuilder
 		t.Initialize(maxLen, " ")
-		for _, token := range strings.Fields(capString) {
+		for _, token := range capFields {
 			t.Add(token)
 		}
 		capLines := t.Lines()
@@ -775,7 +776,7 @@ func capHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 		// every offered capability. during registration, requesting it produces a quit,
 		// otherwise just a CAP NAK
 		if badCaps || (toAdd.Has(caps.Nope) && client.registered) {
-			sendCapReqResponse("NAK", capString)
+			sendCapReqResponse("NAK")
 			return false
 		} else if toAdd.Has(caps.Nope) && !client.registered {
 			client.Quit(fmt.Sprintf(client.t("Requesting the %s client capability is forbidden"), caps.Nope.Name()), rb.session, nil)
@@ -784,7 +785,7 @@ func capHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 
 		rb.session.capabilities.Union(toAdd)
 		rb.session.capabilities.Subtract(toRemove)
-		sendCapReqResponse("ACK", capString)
+		sendCapReqResponse("ACK")
 
 		// XXX compatibility hack, if draft/metadata-2 was requested, silently enable draft/metadata-3
 		// this way we only have to check for one cap at runtime
