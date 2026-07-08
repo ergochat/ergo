@@ -24,9 +24,7 @@ func TestEmptyBuffer(t *testing.T) {
 
 	buf := NewHistoryBuffer(0, 0)
 
-	buf.Add(Item{
-		Nick: "testnick",
-	})
+	buf.Add(easyItem("testnick", "2006-01-03 15:04:05Z"))
 
 	since, complete := betweenTimestamps(buf, pastTime, time.Now(), 0)
 	if len(since) != 0 {
@@ -40,9 +38,7 @@ func TestEmptyBuffer(t *testing.T) {
 	since, complete = betweenTimestamps(buf, pastTime, time.Now(), 0)
 	assertEqual(complete, true, t)
 	assertEqual(len(since), 0, t)
-	buf.Add(Item{
-		Nick: "testnick",
-	})
+	buf.Add(easyItem("testnick", "2006-01-03 15:04:05Z"))
 	since, complete = betweenTimestamps(buf, pastTime, time.Now(), 0)
 	if len(since) != 1 {
 		t.Error("should be able to store items in a nonempty buffer")
@@ -54,9 +50,7 @@ func TestEmptyBuffer(t *testing.T) {
 		t.Error("retrived junk data")
 	}
 
-	buf.Add(Item{
-		Nick: "testnick2",
-	})
+	buf.Add(easyItem("testnick2", "2006-01-04 15:04:05Z"))
 	since, complete = betweenTimestamps(buf, pastTime, time.Now(), 0)
 	if len(since) != 1 {
 		t.Error("expect exactly 1 item")
