@@ -40,6 +40,8 @@ func newAPIHandler(server *Server) http.Handler {
 	api.mux.HandleFunc("POST /v1/ns/list", api.handleAccountList)
 	api.mux.HandleFunc("POST /v1/ns/passwd", api.handleNsPasswd)
 	api.mux.HandleFunc("POST /v1/ns/saregister", api.handleSaregister)
+	api.mux.HandleFunc("POST /v1/ns/saget", api.handleNsSaget)
+	api.mux.HandleFunc("POST /v1/ns/saset", api.handleNsSaset)
 
 	return api
 }
@@ -246,6 +248,220 @@ func (a *ergoAPI) handleNsPasswd(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.writeJSONResponse(response, w, r)
+}
+
+// convert to/from the "default"/"off"/"on" vocabulary used by the
+// /v1/ns/saget and /v1/ns/saset API endpoints
+func apiPersistentStatusToString(status PersistentStatus) string {
+	switch status {
+	case PersistentDisabled:
+		return "off"
+	case PersistentMandatory:
+		return "on"
+	default:
+		return "default"
+	}
+}
+
+func apiPersistentStatusFromString(status string) (PersistentStatus, error) {
+	switch strings.ToLower(status) {
+	case "default":
+		return PersistentUnspecified, nil
+	case "off":
+		return PersistentDisabled, nil
+	case "on":
+		return PersistentMandatory, nil
+	default:
+		return PersistentUnspecified, errInvalidParams
+	}
+}
+
+// convert to/from the "commands-only"/"on" vocabulary used by the
+// /v1/ns/saget and /v1/ns/saset API endpoints
+func apiReplayJoinsToString(status ReplayJoinsSetting) string {
+	switch status {
+	case ReplayJoinsAlways:
+		return "on"
+	default:
+		return "commands-only"
+	}
+}
+
+func apiReplayJoinsFromString(status string) (ReplayJoinsSetting, error) {
+	switch strings.ToLower(status) {
+	case "commands-only":
+		return ReplayJoinsCommandsOnly, nil
+	case "on":
+		return ReplayJoinsAlways, nil
+	default:
+		return ReplayJoinsCommandsOnly, errInvalidParams
+	}
+}
+
+type apiAccountSettingsRequest struct {
+	AccountName string `json:"accountName"`
+}
+
+type apiAccountSettingsResponse struct {
+	apiGenericResponse
+	AlwaysOn    string `json:"alwaysOn,omitempty"`
+	AutoAway    string `json:"autoAway,omitempty"`
+	Email       string `json:"email,omitempty"`
+	ReplayJoins string `json:"replayJoins,omitempty"`
+}
+
+// accountSettingsErrorCode maps an error from loading or modifying account
+// settings to the machine-readable errorCode conventions shared by
+// /v1/ns/saget and /v1/ns/saset.
+func accountSettingsErrorCode(err error) string {
+	switch err {
+	case errAccountDoesNotExist:
+		return "ACCOUNT_DOES_NOT_EXIST"
+	case errAccountUnverified:
+		return "ACCOUNT_UNVERIFIED"
+	case errAccountSuspended:
+		return "ACCOUNT_SUSPENDED"
+	default:
+		return "UNKNOWN_ERROR"
+	}
+}
+
+func accountSettingsErrorResponse(err error) apiAccountSettingsResponse {
+	response := apiAccountSettingsResponse{
+		apiGenericResponse: apiGenericResponse{Success: false, ErrorCode: accountSettingsErrorCode(err)},
+	}
+	if response.ErrorCode == "UNKNOWN_ERROR" {
+		response.Error = err.Error()
+	}
+	return response
+}
+
+// loadVerifiedAccount loads an account and checks that it exists, is
+// verified, and is not suspended, returning the appropriate sentinel error
+// otherwise.
+func (a *ergoAPI) loadVerifiedAccount(accountName string) (accountData ClientAccount, err error) {
+	accountData, err = a.server.accounts.LoadAccount(accountName)
+	if err == nil {
+		if !accountData.Verified {
+			err = errAccountUnverified
+		} else if accountData.Suspended != nil {
+			err = errAccountSuspended
+		}
+	}
+	return
+}
+
+func (a *ergoAPI) accountSettingsResponse(accountName string) apiAccountSettingsResponse {
+	accountData, err := a.loadVerifiedAccount(accountName)
+	if err != nil {
+		return accountSettingsErrorResponse(err)
+	}
+
+	settings := accountData.Settings
+	return apiAccountSettingsResponse{
+		apiGenericResponse: apiGenericResponse{Success: true},
+		AlwaysOn:           apiPersistentStatusToString(settings.AlwaysOn),
+		AutoAway:           apiPersistentStatusToString(settings.AutoAway),
+		Email:              settings.Email,
+		ReplayJoins:        apiReplayJoinsToString(settings.ReplayJoins),
+	}
+}
+
+func (a *ergoAPI) handleNsSaget(w http.ResponseWriter, r *http.Request) {
+	var request apiAccountSettingsRequest
+	if err := a.decodeJSONRequest(&request, w, r); err != nil {
+		return
+	}
+
+	if request.AccountName == "" {
+		a.writeJSONResponse(apiAccountSettingsResponse{
+			apiGenericResponse: apiGenericResponse{Success: false, ErrorCode: "INVALID_REQUEST"},
+		}, w, r)
+		return
+	}
+
+	a.writeJSONResponse(a.accountSettingsResponse(request.AccountName), w, r)
+}
+
+type apiNsSasetRequest struct {
+	AccountName string  `json:"accountName"`
+	AlwaysOn    *string `json:"alwaysOn"`
+	AutoAway    *string `json:"autoAway"`
+	Email       *string `json:"email"`
+	ReplayJoins *string `json:"replayJoins"`
+}
+
+func (a *ergoAPI) handleNsSaset(w http.ResponseWriter, r *http.Request) {
+	var request apiNsSasetRequest
+	if err := a.decodeJSONRequest(&request, w, r); err != nil {
+		return
+	}
+
+	if request.AccountName == "" {
+		a.writeJSONResponse(apiAccountSettingsResponse{
+			apiGenericResponse: apiGenericResponse{Success: false, ErrorCode: "INVALID_REQUEST"},
+		}, w, r)
+		return
+	}
+
+	var alwaysOn, autoAway PersistentStatus
+	var replayJoins ReplayJoinsSetting
+	var err error
+	if request.AlwaysOn != nil {
+		if alwaysOn, err = apiPersistentStatusFromString(*request.AlwaysOn); err != nil {
+			a.writeJSONResponse(apiAccountSettingsResponse{
+				apiGenericResponse: apiGenericResponse{Success: false, ErrorCode: "INVALID_REQUEST"},
+			}, w, r)
+			return
+		}
+	}
+	if request.AutoAway != nil {
+		if autoAway, err = apiPersistentStatusFromString(*request.AutoAway); err != nil {
+			a.writeJSONResponse(apiAccountSettingsResponse{
+				apiGenericResponse: apiGenericResponse{Success: false, ErrorCode: "INVALID_REQUEST"},
+			}, w, r)
+			return
+		}
+	}
+	if request.ReplayJoins != nil {
+		if replayJoins, err = apiReplayJoinsFromString(*request.ReplayJoins); err != nil {
+			a.writeJSONResponse(apiAccountSettingsResponse{
+				apiGenericResponse: apiGenericResponse{Success: false, ErrorCode: "INVALID_REQUEST"},
+			}, w, r)
+			return
+		}
+	}
+
+	// reject the write up front if the account isn't in a usable state
+	// (ModifyAccountSettings doesn't check suspension on its own)
+	if _, err := a.loadVerifiedAccount(request.AccountName); err != nil {
+		a.writeJSONResponse(accountSettingsErrorResponse(err), w, r)
+		return
+	}
+
+	munger := func(in AccountSettings) (out AccountSettings, err error) {
+		out = in
+		if request.AlwaysOn != nil {
+			out.AlwaysOn = alwaysOn
+		}
+		if request.AutoAway != nil {
+			out.AutoAway = autoAway
+		}
+		if request.Email != nil {
+			out.Email = *request.Email
+		}
+		if request.ReplayJoins != nil {
+			out.ReplayJoins = replayJoins
+		}
+		return
+	}
+
+	if _, err := a.server.accounts.ModifyAccountSettings(request.AccountName, munger); err != nil {
+		a.writeJSONResponse(accountSettingsErrorResponse(err), w, r)
+		return
+	}
+
+	a.writeJSONResponse(a.accountSettingsResponse(request.AccountName), w, r)
 }
 
 type apiAccountDetailsResponse struct {
