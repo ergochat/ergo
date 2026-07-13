@@ -136,6 +136,38 @@ The response is a JSON object with fields:
 * `success`: whether the password change succeeded
 * `errorCode`: string, optional, machine-readable description of the error. Possible values include: `ACCOUNT_DOES_NOT_EXIST`, `INVALID_PASSPHRASE`, `CREDENTIALS_EXTERNALLY_MANAGED`, `UNKNOWN_ERROR`.
 
+`/v1/ns/saget`
+--------------
+
+This endpoint retrieves account settings associated with an existing NickServ account. The request is a JSON object with fields:
+
+* `accountName`: string, name of the account
+
+The response is a JSON object with fields:
+
+* `success`: boolean, whether the request succeeded
+* `errorCode`: string, optional, machine-readable description of the error if `success` is false. Possible values: `INVALID_REQUEST`, `ACCOUNT_DOES_NOT_EXIST`, `ACCOUNT_UNVERIFIED`, `UNKNOWN_ERROR`. If `success` is false, the remaining fields are omitted.
+* `error`: string, optional, human-readable description of the failure if `success` is false and `errorCode` is `UNKNOWN_ERROR`
+* `alwaysOn`, string, whether the user is always-on (`default`, `off`, or `on`)
+* `autoAway`, string, whether to automatically set an always-on user as away when no client sessions are connected (`default`, `off`, or `on`)
+* `email`, string, email address associated with the account
+* `replayJoins`, string, whether to replay events like JOIN as PRIVMSGs from HistServ to legacy clients (`commands-only` or `on`)
+
+`/v1/ns/saset`
+--------------
+
+This endpoint modifies account settings associated with an existing NickServ account. The request is a JSON object with fields:
+
+* `accountName`: string, name of the account
+* `alwaysOn`, string, optional, whether the user is always-on (`default`, `off`, or `on`)
+* `autoAway`, string, optional, whether to automatically set an always-on user as away when no client sessions are connected (`default`, `off`, or `on`)
+* `email`, string, optional, email address associated with the account
+* `replayJoins`, string, optional, whether to replay events like JOIN as PRIVMSGs from HistServ to legacy clients (`commands-only` or `on`)
+
+Omitted fields are not updated (i.e. PATCH semantics).
+
+The response format is the same as `/v1/ns/saget`.
+
 `/v1/ns/saregister`
 -------------------
 
