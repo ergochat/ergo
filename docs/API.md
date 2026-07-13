@@ -146,7 +146,7 @@ This endpoint retrieves account settings associated with an existing NickServ ac
 The response is a JSON object with fields:
 
 * `success`: boolean, whether the request succeeded
-* `errorCode`: string, optional, machine-readable description of the error if `success` is false. Possible values: `INVALID_REQUEST`, `ACCOUNT_DOES_NOT_EXIST`, `ACCOUNT_UNVERIFIED`, `ACCOUNT_SUSPENDED`, `UNKNOWN_ERROR`. If `success` is false, the remaining fields are omitted.
+* `errorCode`: string, optional, machine-readable description of the error if `success` is false. Possible values: `INVALID_REQUEST`, `ACCOUNT_DOES_NOT_EXIST`, `ACCOUNT_UNVERIFIED`, `UNKNOWN_ERROR`. If `success` is false, the remaining fields are omitted.
 * `error`: string, optional, human-readable description of the failure if `success` is false and `errorCode` is `UNKNOWN_ERROR`
 * `alwaysOn`, string, whether the user is always-on (`default`, `off`, or `on`)
 * `autoAway`, string, whether to automatically set an always-on user as away when no client sessions are connected (`default`, `off`, or `on`)

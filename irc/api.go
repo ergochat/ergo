@@ -319,8 +319,6 @@ func accountSettingsErrorCode(err error) string {
 		return "ACCOUNT_DOES_NOT_EXIST"
 	case errAccountUnverified:
 		return "ACCOUNT_UNVERIFIED"
-	case errAccountSuspended:
-		return "ACCOUNT_SUSPENDED"
 	default:
 		return "UNKNOWN_ERROR"
 	}
@@ -336,17 +334,12 @@ func accountSettingsErrorResponse(err error) apiAccountSettingsResponse {
 	return response
 }
 
-// loadVerifiedAccount loads an account and checks that it exists, is
-// verified, and is not suspended, returning the appropriate sentinel error
-// otherwise.
+// loadVerifiedAccount loads an account and checks that it exists and is
+// verified, returning the appropriate sentinel error otherwise.
 func (a *ergoAPI) loadVerifiedAccount(accountName string) (accountData ClientAccount, err error) {
 	accountData, err = a.server.accounts.LoadAccount(accountName)
-	if err == nil {
-		if !accountData.Verified {
-			err = errAccountUnverified
-		} else if accountData.Suspended != nil {
-			err = errAccountSuspended
-		}
+	if err == nil && !accountData.Verified {
+		err = errAccountUnverified
 	}
 	return
 }
@@ -430,13 +423,6 @@ func (a *ergoAPI) handleNsSaset(w http.ResponseWriter, r *http.Request) {
 			}, w, r)
 			return
 		}
-	}
-
-	// reject the write up front if the account isn't in a usable state
-	// (ModifyAccountSettings doesn't check suspension on its own)
-	if _, err := a.loadVerifiedAccount(request.AccountName); err != nil {
-		a.writeJSONResponse(accountSettingsErrorResponse(err), w, r)
-		return
 	}
 
 	munger := func(in AccountSettings) (out AccountSettings, err error) {
