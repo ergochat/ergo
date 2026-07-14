@@ -19,13 +19,13 @@ Many thanks to [@andymandias](https://github.com/andymandias), [@emersion](https
 * Fixed registered secret channels appearing in unprivileged `NS INFO` output (#2405, thanks dzwdz!)
 
 ### Config changes
-* The `extjwt` configuration block now takes `algorithm` (`hmac`, `rsa`, or `eddsa`) and either `key` or `key-file` to configure the signing key (see `default.yaml` for examples). (#2385)
+* The `extjwt` configuration block now takes `algorithm` (`hmac`, `rsa`, or `eddsa`) and either `key` or `key-file` to configure the signing key (see `default.yaml` for examples) (#2385)
 * Added an optional `validate-aud` to `jwt-auth`; if present, JWTs submitted via SASL IRCV3BEARER are required to contain one of the whitelisted `aud` claims (#2385)
 * Added `authtoken` block to configure the new `draft/authtoken` mechanism for external service integration (#2385)
 * Added `socket` to `auth-script` and `ip-check-script`, allowing the script protocol to run over Unix domain socket instead of subprocess execution (#2280)
 
 ### Added
-* Added [draft/authtoken](https://github.com/ircv3/ircv3-specifications/pull/602), a proposed IRCv3 extension allowing secure integration with external services (#2385, thanks [@skizzerz](https://github.com/skizzerz), [@whitequark](https://github.com/whitequark)!)
+* Added support for [draft/authtoken](https://github.com/ircv3/ircv3-specifications/pull/602), a proposed IRCv3 extension allowing secure integration with external services (#2385, thanks [@skizzerz](https://github.com/skizzerz), [@whitequark](https://github.com/whitequark)!)
 * Added support for [draft/whoami](https://github.com/ircv3/ircv3-specifications/pull/603), a proposed IRCv3 extension allowing clients to track their message source ("NUH") (#2417)
 * HTTP cookies are harvested from the initial websocket handshake; if a websocket client sends `SASL EXTERNAL`, they can be passed to an `auth-script` for validation (future versions of Ergo may implement some form of native HTTP cookie authentication) (#2185, thanks [@emersion](https://github.com/emersion)!)
 * Added new API endpoints: `/v1/whois` (analogue of the `WHOIS` command to get information about an active nickname), `/v1/ns/saget` (retrieves user account settings), and `/v1/ns/saset` (modifies user account settings) (#2387, #2421, thanks [@KlaasT](https://github.com/KlaasT)!)
