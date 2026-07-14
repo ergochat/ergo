@@ -1,6 +1,54 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
+## [2.19.0-rc1] - 2026-07-14
+
+We're pleased to be publishing the release candidate for v2.19.0 (the official release should follow within a week or so). This release contains IRCv3 specification-related updates, bug fixes, and minor enhancements.
+
+This release includes changes to the config file format, one of which is not backwards-compatible (see below to determine whether you are affected). It includes no changes to the database file format.
+
+Many thanks to [@andymandias](https://github.com/andymandias), [@emersion](https://github.com/emersion), [@englut](https://github.com/englut), [@Jokler](https://github.com/Jokler), [@jwheare](https://github.com/jwheare), [@KlaasT](https://github.com/KlaasT), [@SAY-5](https://github.com/SAY-5), [@skizzerz](https://github.com/skizzerz), [@ValwareIRC](https://github.com/ValwareIRC), and [@whitequark](https://github.com/whitequark) for helpful discussions, contributing patches, reporting issues, and helping test.
+
+### Compatibility breaks
+* The `extjwt` configuration block now takes `algorithm` (`hmac`, `rsa`, or `eddsa`) and either `key` or `key-file` to configure the signing key (see `default.yaml` for examples). If you are using `extjwt`, the suggested upgrade path is to add the new keys before upgrading (duplicating the legacy keys `secret` and/or `rsa-private-key-file`), upgrade Ergo, then once the new version is confirmed stable, delete the legacy keys. (#2385)
+* JWTs accepted via the `IRCV3BEARER` SASL mechanism now require an expiration time. (#2385)
+* Incoming batch IDs for `draft/multiline` are now validated for conformance with the specification's grammar, i.e. they MUST contain only ASCII alphanumerics and hyphens (#2391, thanks [@ValwareIRC](https://github.com/ValwareIRC)!)
+
+### Security
+* Fixed channel metadata being readable by non-joined users (including for invite-only or otherwise private channels) (#2382)
+* Fixed registered secret channels appearing in unprivileged `NS INFO` output (#2405, thanks dzwdz!)
+
+### Config changes
+* The `extjwt` configuration block now takes `algorithm` (`hmac`, `rsa`, or `eddsa`) and either `key` or `key-file` to configure the signing key (see `default.yaml` for examples) (#2385)
+* Added an optional `validate-aud` to `jwt-auth`; if present, JWTs submitted via SASL IRCV3BEARER are required to contain one of the whitelisted `aud` claims (#2385)
+* Added `authtoken` block to configure the new `draft/authtoken` mechanism for external service integration (#2385)
+* Added `socket` to `auth-script` and `ip-check-script`, allowing the script protocol to run over Unix domain socket instead of subprocess execution (#2280)
+
+### Added
+* Added support for [draft/authtoken](https://github.com/ircv3/ircv3-specifications/pull/602), a proposed IRCv3 extension allowing secure integration with external services (#2385, thanks [@skizzerz](https://github.com/skizzerz), [@whitequark](https://github.com/whitequark)!)
+* Added support for [draft/whoami](https://github.com/ircv3/ircv3-specifications/pull/603), a proposed IRCv3 extension allowing clients to track their message source ("NUH") (#2417)
+* HTTP cookies are harvested from the initial websocket handshake; if a websocket client sends `SASL EXTERNAL`, they can be passed to an `auth-script` for validation (future versions of Ergo may implement some form of native HTTP cookie authentication) (#2185, thanks [@emersion](https://github.com/emersion)!)
+* Added new API endpoints: `/v1/whois` (analogue of the `WHOIS` command to get information about an active nickname), `/v1/ns/saget` (retrieves user account settings), and `/v1/ns/saset` (modifies user account settings) (#2387, #2421, thanks [@KlaasT](https://github.com/KlaasT)!)
+
+### Fixed
+* Fixed a race condition where an always-on client's channel join might not be persisted (#2398)
+* Fixed the `bot` tag being omitted from replayed DMs and echo messages (#2393, #2395, thanks [@andymandias](https://github.com/andymandias)!)
+* Fixed client-only tags attached to `RELAYMSG` not being stored in history (#2407, thanks [@Jokler](https://github.com/Jokler)!)
+* Fixed handling of labeled `QUIT` messages (#2402, thanks [@progval](https://github.com/progval)!)
+* Fixed handling of oversized `CAP REQ` messages (#2411, #2414, thanks [@SAY-5](https://github.com/SAY-5)!)
+* Fixed a case where fakelag might be imposed unnecessarily after a large multiline message (#2409)
+* Fixed handling of invalid API bearer token configurations (#2380)
+
+### Changed
+* Updated to [draft/metadata-3](https://github.com/ircv3/ircv3-specifications/pull/613); the updates are largely but not completely compatible with `draft/metadata-2`. To simplify the upgrade process, `draft/metadata-2` is still advertised, but with the `draft/metadata-3` behavior. (#2416, thanks [@skizzerz](https://github.com/skizzerz)!)
+* Ergo now adds the `draft/chathistory-end` to `chathistory` batches to indicate the end of pagination (either the tag or an empty batch indicates the end of pagination; future versions of Ergo may return batches shorter than the pagination window that do not indicate the end of pagination) (#2379, thanks [@emersion](https://github.com/emersion)!)
+* Updated to the ratified cap `no-implicit-names` (#2390, thanks [@englut](https://github.com/englut)!)
+
+### Internal
+* Release builds use Go 1.26.5
+* Updated the recommended AppArmor profile in `distrib/` (#2401, thanks [@tacerus](https://github.com/tacerus)!)
+* Established a [security policy](https://github.com/ergochat/ergo/security), including provisions for private vulnerability reporting on GitHub
+
 ## [2.18.0] - 2026-03-22
 
 We're pleased to be publishing v2.18.0, a new stable release. This release adds support for PostgreSQL and SQLite as history backends, expands the HTTP API, and includes bug fixes and minor improvements.
