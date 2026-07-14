@@ -4,8 +4,8 @@
 
 In general, only the latest release of Ergo is supported (this is the latest release
 on the [releases page](https://github.com/ergochat/ergo/releases) not marked as
-a pre-release, or latest tag in the semver ordering, or the current value of the `stable`
-branch).
+a pre-release, or the latest tag in the semver ordering not marked as a release
+candidate, or the current value of the `stable` branch).
 
 We strive to provide a safe upgrade path for all deployments. In the interest of this,
 serious vulnerabilities will be patched from the latest stable release,
