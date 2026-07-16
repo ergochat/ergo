@@ -8,7 +8,6 @@ package irc
 import (
 	"bytes"
 	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"io"
@@ -908,7 +907,7 @@ func loadTlsConfig(config listenerConfigBlock) (tlsConfig *tls.Config, err error
 	if len(config.TLSCertificates) != 0 {
 		// SNI configuration with multiple certificates
 		for _, certPairConf := range config.TLSCertificates {
-			cert, err := loadCertWithLeaf(certPairConf.Cert, certPairConf.Key)
+			cert, err := tls.LoadX509KeyPair(certPairConf.Cert, certPairConf.Key)
 			if err != nil {
 				return nil, err
 			}
@@ -916,7 +915,7 @@ func loadTlsConfig(config listenerConfigBlock) (tlsConfig *tls.Config, err error
 		}
 	} else if config.TLS.Cert != "" {
 		// normal configuration with one certificate
-		cert, err := loadCertWithLeaf(config.TLS.Cert, config.TLS.Key)
+		cert, err := tls.LoadX509KeyPair(config.TLS.Cert, config.TLS.Key)
 		if err != nil {
 			return nil, err
 		}
@@ -957,20 +956,6 @@ func tlsMinVersionFromString(version string) uint16 {
 		// tls package will fill in a sane value, currently 1.0
 		return 0
 	}
-}
-
-func loadCertWithLeaf(certFile, keyFile string) (cert tls.Certificate, err error) {
-	// LoadX509KeyPair: "On successful return, Certificate.Leaf will be nil because
-	// the parsed form of the certificate is not retained." tls.Config:
-	// "Note: if there are multiple Certificates, and they don't have the
-	// optional field Leaf set, certificate selection will incur a significant
-	// per-handshake performance cost."
-	cert, err = tls.LoadX509KeyPair(certFile, keyFile)
-	if err != nil {
-		return
-	}
-	cert.Leaf, err = x509.ParseCertificate(cert.Certificate[0])
-	return
 }
 
 // prepareListeners populates Config.Server.trueListeners
@@ -1045,7 +1030,7 @@ func (config *Config) processAPI() (err error) {
 
 	var tlsConfig *tls.Config
 	if config.API.TLS.Cert != "" {
-		cert, err := loadCertWithLeaf(config.API.TLS.Cert, config.API.TLS.Key)
+		cert, err := tls.LoadX509KeyPair(config.API.TLS.Cert, config.API.TLS.Key)
 		if err != nil {
 			return err
 		}
