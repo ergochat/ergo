@@ -242,6 +242,40 @@ func historyStatusToString(status HistoryStatus) string {
 	}
 }
 
+type StoreEvents uint
+
+const (
+	StoreEventsAll     StoreEvents = iota // default, store all events
+	StoreEventsNoJoins                    // don't store JOIN/QUIT/PART, do store TOPIC and NICK
+	StoreEventsNone                       // don't store any events, only HISTORY/PRIVMSG/TAGMSG
+)
+
+func storeEventsFromString(str string) (status StoreEvents, err error) {
+	switch strings.ToLower(str) {
+	case "all", "default", "on", "true", "yes":
+		return StoreEventsAll, nil
+	case "no-joins":
+		return StoreEventsNoJoins, nil
+	case "none":
+		return StoreEventsNone, nil
+	default:
+		return StoreEventsAll, errInvalidParams
+	}
+}
+
+func storeEventsToString(storeEvents StoreEvents) string {
+	switch storeEvents {
+	case StoreEventsAll:
+		return "all"
+	case StoreEventsNoJoins:
+		return "no-joins"
+	case StoreEventsNone:
+		return "none"
+	default:
+		return "unknown"
+	}
+}
+
 // XXX you must have already checked History.Enabled before calling this
 func historyEnabled(serverSetting PersistentStatus, localSetting HistoryStatus) (result HistoryStatus) {
 	switch serverSetting {

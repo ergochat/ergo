@@ -183,6 +183,12 @@ by unprivileged users. Your options are:
                          channel; note that history will be effectively
                          unavailable to clients that are not always-on]
 4. 'default'            [use the server default]`,
+				`$bSTORE-EVENTS$b
+'store-events' lets you control whether non-message events (like JOIN or
+QUIT) are stored in your channel's history. Your options are:
+1. 'all'         [store all events, the default]
+2. 'no-joins'    [don't store JOIN/PART/QUIT]
+3. 'none'        [don't store any events, including TOPIC/KICK]`,
 			},
 			enabled:   chanregEnabled,
 			minParams: 3,
@@ -813,6 +819,8 @@ func displayChannelSetting(service *ircService, settingName string, settings Cha
 		}
 		service.Notice(rb, fmt.Sprintf(client.t("The stored channel history query cutoff setting is: %s"), historyCutoffToString(settings.QueryCutoff)))
 		service.Notice(rb, fmt.Sprintf(client.t("Given current server settings, the channel history query cutoff setting is: %s"), historyCutoffToString(effectiveValue)))
+	case "store-events":
+		service.Notice(rb, fmt.Sprintf(client.t("The stored channel setting for store-events is: %s"), storeEventsToString(settings.StoreEvents)))
 	default:
 		service.Notice(rb, client.t("Invalid params"))
 	}
@@ -858,6 +866,13 @@ func csSetHandler(service *ircService, server *Server, client *Client, command s
 		channel.resizeHistory(server.Config())
 	case "query-cutoff":
 		settings.QueryCutoff, err = historyCutoffFromString(value)
+		if err != nil {
+			err = errInvalidParams
+			break
+		}
+		channel.SetSettings(settings)
+	case "store-events":
+		settings.StoreEvents, err = storeEventsFromString(value)
 		if err != nil {
 			err = errInvalidParams
 			break
