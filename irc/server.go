@@ -1177,7 +1177,7 @@ func (server *Server) GetHistorySequence(providedChannel *Channel, client *Clien
 			err = errInsufficientPrivs
 			return
 		}
-		status, target, restriction = channel.historyStatus(config)
+		status, _, target, restriction = channel.historyStatus(config)
 		switch status {
 		case HistoryEphemeral:
 			hist = &channel.history
@@ -1279,7 +1279,7 @@ func (server *Server) DeleteMessage(target, msgid, accountName string) (err erro
 		if target[0] == '#' {
 			channel := server.channels.Get(target)
 			if channel != nil {
-				if status, _, _ := channel.historyStatus(config); status == HistoryEphemeral {
+				if status, _, _, _ := channel.historyStatus(config); status == HistoryEphemeral {
 					hist = &channel.history
 				}
 			}

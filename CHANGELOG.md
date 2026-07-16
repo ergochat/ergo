@@ -7,7 +7,7 @@ We're pleased to be publishing the release candidate for v2.19.0 (the official r
 
 This release includes changes to the config file format, one of which is not backwards-compatible (see below to determine whether you are affected). It includes no changes to the database file format.
 
-Many thanks to [@andymandias](https://github.com/andymandias), [@emersion](https://github.com/emersion), [@englut](https://github.com/englut), [@Jokler](https://github.com/Jokler), [@jwheare](https://github.com/jwheare), [@KlaasT](https://github.com/KlaasT), [@SAY-5](https://github.com/SAY-5), [@skizzerz](https://github.com/skizzerz), [@ValwareIRC](https://github.com/ValwareIRC), and [@whitequark](https://github.com/whitequark) for helpful discussions, contributing patches, reporting issues, and helping test.
+Many thanks to [@andymandias](https://github.com/andymandias), [@emersion](https://github.com/emersion), [@englut](https://github.com/englut), [@Jokler](https://github.com/Jokler), [@jwheare](https://github.com/jwheare), [@KlaasT](https://github.com/KlaasT), [@luxaritas](https://github.com/luxaritas), [@SAY-5](https://github.com/SAY-5), [@skizzerz](https://github.com/skizzerz), [@ValwareIRC](https://github.com/ValwareIRC), and [@whitequark](https://github.com/whitequark) for helpful discussions, contributing patches, reporting issues, and helping test.
 
 ### Compatibility breaks
 * The `extjwt` configuration block now takes `algorithm` (`hmac`, `rsa`, or `eddsa`) and either `key` or `key-file` to configure the signing key (see `default.yaml` for examples). If you are using `extjwt`, the suggested upgrade path is to add the new keys before upgrading (duplicating the legacy keys `secret` and/or `rsa-private-key-file`), upgrade Ergo, then once the new version is confirmed stable, delete the legacy keys. (#2385)
@@ -29,6 +29,7 @@ Many thanks to [@andymandias](https://github.com/andymandias), [@emersion](https
 * Added support for [draft/whoami](https://github.com/ircv3/ircv3-specifications/pull/603), a proposed IRCv3 extension allowing clients to track their message source ("NUH") (#2417)
 * HTTP cookies are harvested from the initial websocket handshake; if a websocket client sends `SASL EXTERNAL`, they can be passed to an `auth-script` for validation (future versions of Ergo may implement some form of native HTTP cookie authentication) (#2185, thanks [@emersion](https://github.com/emersion)!)
 * Added new API endpoints: `/v1/whois` (analogue of the `WHOIS` command to get information about an active nickname), `/v1/ns/saget` (retrieves user account settings), and `/v1/ns/saset` (modifies user account settings) (#2387, #2421, thanks [@KlaasT](https://github.com/KlaasT)!)
+* Added a new ChanServ setting `store-events` to optionally suppress history storage of events like `JOIN` and `QUIT` (#2424, thanks [@luxaritas](https://github.com/luxaritas)!)
 
 ### Fixed
 * Fixed a race condition where an always-on client's channel join might not be persisted (#2398)

@@ -28,6 +28,7 @@ import (
 type ChannelSettings struct {
 	History     HistoryStatus
 	QueryCutoff HistoryCutoff
+	StoreEvents StoreEvents
 }
 
 // Channel represents a channel that clients can join.
@@ -101,7 +102,7 @@ func (channel *Channel) initializeLists() {
 }
 
 func (channel *Channel) resizeHistory(config *Config) {
-	status, _, _ := channel.historyStatus(config)
+	status, _, _, _ := channel.historyStatus(config)
 	if status == HistoryEphemeral {
 		channel.history.Resize(config.History.ChannelLength, time.Duration(config.History.AutoresizeWindow))
 	} else {
@@ -674,9 +675,9 @@ func (channel *Channel) IsEmpty() bool {
 
 // figure out where history is being stored: persistent, ephemeral, or neither
 // target is only needed if we're doing persistent history
-func (channel *Channel) historyStatus(config *Config) (status HistoryStatus, target string, restrictions HistoryCutoff) {
+func (channel *Channel) historyStatus(config *Config) (status HistoryStatus, storeEvents StoreEvents, target string, restrictions HistoryCutoff) {
 	if !config.History.Enabled {
-		return HistoryDisabled, "", HistoryCutoffNone
+		return HistoryDisabled, StoreEventsAll, "", HistoryCutoffNone
 	}
 
 	channel.stateMutex.RLock()
@@ -690,7 +691,7 @@ func (channel *Channel) historyStatus(config *Config) (status HistoryStatus, tar
 		restrictions = config.History.Restrictions.queryCutoff
 	}
 
-	return channelHistoryStatus(config, registered, settings.History), target, restrictions
+	return channelHistoryStatus(config, registered, settings.History), settings.StoreEvents, target, restrictions
 }
 
 func (channel *Channel) joinTimeCutoff(client *Client) (present bool, cutoff time.Time) {
@@ -726,12 +727,28 @@ func channelHistoryStatus(config *Config, registered bool, storedStatus HistoryS
 	}
 }
 
+func channelEventIsStorable(itemType history.ItemType, storeEvents StoreEvents) bool {
+	switch storeEvents {
+	case StoreEventsAll:
+		return true
+	case StoreEventsNoJoins:
+		return !(itemType == history.Join || itemType == history.Part || itemType == history.Quit)
+	case StoreEventsNone:
+		return itemType == history.Privmsg || itemType == history.Notice || itemType == history.Tagmsg
+	default:
+		return true
+	}
+}
+
 func (channel *Channel) AddHistoryItem(item history.Item, account string) (err error) {
 	if !itemIsStorable(&item, channel.server.Config()) {
 		return
 	}
 
-	status, target, _ := channel.historyStatus(channel.server.Config())
+	status, storeEvents, target, _ := channel.historyStatus(channel.server.Config())
+	if !channelEventIsStorable(item.Type, storeEvents) {
+		return
+	}
 	if status == HistoryPersistent {
 		err = channel.server.historyDB.AddChannelItem(target, item, account)
 		if err != nil {
