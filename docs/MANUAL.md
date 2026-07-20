@@ -66,6 +66,7 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
     - [API](#api)
     - [External authentication systems](#external-authentication-systems)
     - [DNSBLs and other IP checking systems](#dnsbls-and-other-ip-checking-systems)
+    - [draft/authtoken](#draftauthtoken)
 - [Acknowledgements](#acknowledgements)
 
 --------------------------------------------------------------------------------------------
@@ -1268,6 +1269,17 @@ The output is a JSON dictionary with the following keys:
 * `result`: an integer indicating the result of the check (1 for "accepted", 2 for "banned", 3 for "SASL required")
 * `banMessage`: a message to send to the user indicating why they are banned
 * `error`, containing a human-readable description of the authentication error to be logged if applicable
+
+## draft/authtoken
+
+Ergo 2.19 adds support for [draft/authtoken](https://github.com/ircv3/ircv3-specifications/pull/602), a proposed IRCv3 mechanism for integrating with external services. Although Ergo implements the full specification, including online token verification, Ergo's tokens are signed JWTs and the intent is for Ergo-aware services to verify them locally, without contacting the Ergo server. Here are the hardening recommendations for draft/authtoken in Ergo:
+
+* Use the `hmac` algorithm with a strong, unique key for each service. (You can generate a suitable key with `ergo gentoken`.)
+* The expiration time should be no higher than 5 minutes.
+* When processing a token, validate the signature according to the `HS256` algorithm, then validate the following claims:
+  * `aud` should be the service's endpoint URL
+  * `acc` should be the user's account name (without case normalization)
+  * If present, `scope` is the channel name and `chmode` is the user's operator level in the channel (e.g. `o` for operator or `h` for halfop).
 
 --------------------------------------------------------------------------------------------
 
