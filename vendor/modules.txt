@@ -1,8 +1,8 @@
 # code.cloudfoundry.org/bytefmt v0.0.0-20200131002437-cf55d5288a48
 ## explicit
 code.cloudfoundry.org/bytefmt
-# filippo.io/edwards25519 v1.1.1
-## explicit; go 1.20
+# filippo.io/edwards25519 v1.2.0
+## explicit; go 1.24.0
 filippo.io/edwards25519
 filippo.io/edwards25519/field
 # github.com/GehirnInc/crypt v0.0.0-20200316065508-bb7000b8a962
@@ -35,13 +35,13 @@ github.com/ergochat/irc-go/ircutils
 # github.com/ergochat/webpush-go/v2 v2.0.0
 ## explicit; go 1.20
 github.com/ergochat/webpush-go/v2
-# github.com/go-sql-driver/mysql v1.9.3
-## explicit; go 1.21.0
+# github.com/go-sql-driver/mysql v1.10.0
+## explicit; go 1.24.0
 github.com/go-sql-driver/mysql
 # github.com/gofrs/flock v0.8.1
 ## explicit
 github.com/gofrs/flock
-# github.com/golang-jwt/jwt/v5 v5.3.0
+# github.com/golang-jwt/jwt/v5 v5.3.1
 ## explicit; go 1.21
 github.com/golang-jwt/jwt/v5
 # github.com/google/uuid v1.6.0
@@ -56,7 +56,7 @@ github.com/jackc/pgpassfile
 # github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761
 ## explicit; go 1.14
 github.com/jackc/pgservicefile
-# github.com/jackc/pgx/v5 v5.9.2
+# github.com/jackc/pgx/v5 v5.10.0
 ## explicit; go 1.25.0
 github.com/jackc/pgx/v5
 github.com/jackc/pgx/v5/internal/iobufpool
@@ -79,7 +79,7 @@ github.com/jackc/puddle/v2/internal/genstack
 # github.com/mattn/go-isatty v0.0.20
 ## explicit; go 1.15
 github.com/mattn/go-isatty
-# github.com/ncruces/go-strftime v0.1.9
+# github.com/ncruces/go-strftime v1.0.0
 ## explicit; go 1.17
 github.com/ncruces/go-strftime
 # github.com/okzk/sdnotify v0.0.0-20180710141335-d9becc38acbd
@@ -125,8 +125,8 @@ github.com/xdg-go/pbkdf2
 # github.com/xdg-go/scram v1.0.2 => github.com/ergochat/scram v1.0.2-ergo1
 ## explicit; go 1.11
 github.com/xdg-go/scram
-# golang.org/x/crypto v0.46.0
-## explicit; go 1.24.0
+# golang.org/x/crypto v0.54.0
+## explicit; go 1.25.0
 golang.org/x/crypto/bcrypt
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/ed25519
@@ -134,20 +134,19 @@ golang.org/x/crypto/hkdf
 golang.org/x/crypto/pbkdf2
 # golang.org/x/exp v0.0.0-20250620022241-b7579e27df2b
 ## explicit; go 1.23.0
-golang.org/x/exp/constraints
-# golang.org/x/sync v0.19.0
-## explicit; go 1.24.0
+# golang.org/x/sync v0.22.0
+## explicit; go 1.25.0
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.39.0
-## explicit; go 1.24.0
+# golang.org/x/sys v0.47.0
+## explicit; go 1.25.0
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/term v0.38.0
-## explicit; go 1.24.0
+# golang.org/x/term v0.45.0
+## explicit; go 1.25.0
 golang.org/x/term
-# golang.org/x/text v0.32.0
-## explicit; go 1.24.0
+# golang.org/x/text v0.40.0
+## explicit; go 1.25.0
 golang.org/x/text/cases
 golang.org/x/text/internal
 golang.org/x/text/internal/language
@@ -164,8 +163,8 @@ golang.org/x/text/width
 # gopkg.in/yaml.v2 v2.4.0
 ## explicit; go 1.15
 gopkg.in/yaml.v2
-# modernc.org/libc v1.66.10
-## explicit; go 1.23.0
+# modernc.org/libc v1.74.1
+## explicit; go 1.25.0
 modernc.org/libc
 modernc.org/libc/errno
 modernc.org/libc/fcntl
@@ -198,8 +197,8 @@ modernc.org/mathutil
 # modernc.org/memory v1.11.0
 ## explicit; go 1.23.0
 modernc.org/memory
-# modernc.org/sqlite v1.42.2
-## explicit; go 1.24.0
+# modernc.org/sqlite v1.54.0
+## explicit; go 1.25.0
 modernc.org/sqlite
 modernc.org/sqlite/lib
 modernc.org/sqlite/vtab

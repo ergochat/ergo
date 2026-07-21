@@ -7,7 +7,7 @@ import "fmt"
 
 const (
 	// SemVer is the semantic version of Ergo.
-	SemVer = "2.19.0"
+	SemVer = "2.20.0-unreleased"
 )
 
 var (

@@ -12,6 +12,12 @@ package vtab
 //   The driver no longer auto-declares based on USING(...) args to support
 //   dynamic schemas (e.g., CSV headers).
 //
+// - Constraint support: Modules that want MATCH/other constraints must call
+//   Context.EnableConstraintSupport from within Create or Connect.
+//
+// - Vtab config: Modules can call Context.Config to pass sqlite3_vtab_config
+//   options (e.g., INNOCUOUS, DIRECTONLY) from within Create or Connect.
+//
 // - Constraint operators: ConstraintOp includes OpUnknown for operators that
 //   are not recognized. The driver maps common SQLite operators including EQ,
 //   NE, GT, GE, LT, LE, MATCH, IS/ISNOT, ISNULL/ISNOTNULL, LIKE, GLOB, REGEXP,
