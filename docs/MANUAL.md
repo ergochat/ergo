@@ -1276,9 +1276,9 @@ Ergo 2.19 adds support for [draft/authtoken](https://github.com/ircv3/ircv3-spec
 
 * Use the `hmac` algorithm with a strong, unique key for each service. (You can generate a suitable key with `ergo gentoken`.)
 * The expiration time should be no higher than 5 minutes.
-* When processing a token, validate the signature according to the `HS256` algorithm, then validate the following claims:
-  * `aud` should be the service's endpoint URL
-  * `acc` should be the user's account name (without case normalization)
+* When processing a token, validate the signature according to the `HS256` algorithm, then validate / process the following claims:
+  * Validate that `aud` is the service's endpoint URL
+  * `acc` is the user's account name (without case normalization)
   * If present, `scope` is the channel name and `chmode` is the user's operator level in the channel (e.g. `o` for operator or `h` for halfop).
 
 --------------------------------------------------------------------------------------------
