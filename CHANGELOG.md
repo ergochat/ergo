@@ -1,9 +1,9 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
-## [2.19.0-rc1] - 2026-07-14
+## [2.19.0] - 2026-07-21
 
-We're pleased to be publishing the release candidate for v2.19.0 (the official release should follow within a week or so). This release contains IRCv3 specification-related updates, bug fixes, and minor enhancements.
+We're pleased to be publishing v2.19.0, a new stable release. This release contains IRCv3 specification-related updates, bug fixes, and minor enhancements.
 
 This release includes changes to the config file format, one of which is not backwards-compatible (see below to determine whether you are affected). It includes no changes to the database file format.
 
