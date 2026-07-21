@@ -26,7 +26,7 @@ require (
 require (
 	github.com/emersion/go-msgauth v0.7.0
 	github.com/ergochat/webpush-go/v2 v2.0.0
-	github.com/golang-jwt/jwt/v5 v5.3.0
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/jackc/pgx/v5 v5.10.0
 	modernc.org/sqlite v1.54.0
 )
