@@ -33,7 +33,24 @@ func newTx(ctx context.Context, c *conn, opts driver.TxOptions) (*tx, error) {
 
 // Commit implements driver.Tx.
 func (t *tx) Commit() (err error) {
-	return t.exec(context.Background(), "commit")
+	err = t.exec(context.Background(), "commit")
+	if err == nil {
+		return nil
+	}
+
+	// If Commit fails (e.g., SQLITE_BUSY), the connection might still be inside
+	// the transaction. database/sql expects the connection to be clean (no active
+	// transaction) after Commit returns.
+	//
+	// We check the low-level autocommit state.  0 means autocommit is disabled =>
+	// we are inside a transaction.
+	if t.c.db != 0 && sqlite3.Xsqlite3_get_autocommit(t.c.tls, t.c.db) == 0 {
+		// Force a rollback to clean up the connection.  We ignore the rollback error
+		// because we must return the original Commit error to the user.
+		t.exec(context.Background(), "rollback")
+	}
+
+	return err
 }
 
 // Rollback implements driver.Tx.

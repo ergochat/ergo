@@ -20,15 +20,40 @@ type rows struct {
 	allocs  []uintptr
 	c       *conn
 	columns []string
-	pstmt   uintptr
+	// decltypes holds the uppercased declared types for every result column,
+	// captured once at newRows time. The declared type of a column is fixed
+	// for the lifetime of a prepared statement, so caching the result of
+	// strings.ToUpper(sqlite3_column_decltype(...)) here removes a per-row
+	// libc.GoString + strings.ToUpper from the Next() hot path for callers
+	// that hit the time-conversion branches (_texttotime, _time_format).
+	decltypes []string
+	// parseFmtIdx caches, per column, the index into parseTimeFormats that
+	// matched the first successful (*conn).parseTime call on that column.
+	// Subsequent rows reuse the saved index as the first attempt instead of
+	// re-walking the format list from the top. Slot value -1 means no match
+	// has been recorded yet (either parseTime has not run on this column, or
+	// the parseTimeString / m= branch matched, which is not in
+	// parseTimeFormats). The cache is sticky: once a successful index is
+	// stored it is not overwritten if a later row happens to match a
+	// different format. A steady-format column therefore wins on every row
+	// after the first; a mixed-format column falls through as before, paying
+	// at most one extra format probe on rows whose matching format precedes
+	// the cached one.
+	parseFmtIdx []int8
+	pstmt       uintptr
 
 	doStep    bool
 	empty     bool
 	reuseStmt bool // If true, Close() resets instead of finalizing
 }
 
-func newRows(c *conn, pstmt uintptr, allocs []uintptr, empty bool) (r *rows, err error) {
-	r = &rows{c: c, pstmt: pstmt, allocs: allocs, empty: empty}
+func newRows(c *conn, pstmt uintptr, allocs *[]uintptr, empty bool) (r *rows, err error) {
+	var a []uintptr
+	if allocs != nil {
+		a = *allocs
+		*allocs = nil
+	}
+	r = &rows{c: c, pstmt: pstmt, allocs: a, empty: empty}
 
 	defer func() {
 		if err != nil {
@@ -43,10 +68,14 @@ func newRows(c *conn, pstmt uintptr, allocs []uintptr, empty bool) (r *rows, err
 	}
 
 	r.columns = make([]string, n)
+	r.decltypes = make([]string, n)
+	r.parseFmtIdx = make([]int8, n)
 	for i := range r.columns {
 		if r.columns[i], err = r.c.columnName(pstmt, i); err != nil {
 			return nil, err
 		}
+		r.decltypes[i] = strings.ToUpper(r.c.columnDeclType(pstmt, i))
+		r.parseFmtIdx[i] = -1
 	}
 
 	return r, nil
@@ -54,9 +83,7 @@ func newRows(c *conn, pstmt uintptr, allocs []uintptr, empty bool) (r *rows, err
 
 // Close closes the rows iterator.
 func (r *rows) Close() (err error) {
-	for _, v := range r.allocs {
-		r.c.free(v)
-	}
+	r.c.freeAllocs(r.allocs)
 	r.allocs = nil
 
 	if r.reuseStmt {
@@ -121,17 +148,32 @@ func (r *rows) Next(dest []driver.Value) (err error) {
 					// but we put make this compatibility optional behind a DSN
 					// query parameter, because this changes API behavior, so an
 					// opt-in is needed.
+
 					switch r.ColumnTypeDatabaseTypeName(i) {
 					case "DATE", "DATETIME", "TIMESTAMP":
+						// Check for explicit opt-in first.  This fixes the bug for micro/nano users
+						// without breaking the legacy heuristic for existing users.
+						switch r.c.integerTimeFormat {
+						case "unix_micro":
+							dest[i] = r.c.applyTimezone(time.UnixMicro(v).UTC())
+							continue
+						case "unix_nano":
+							dest[i] = r.c.applyTimezone(time.Unix(0, v).UTC())
+							continue
+						}
+
+						// Legacy Heuristic (mattn/go-sqlite3 compatibility).  NOTE: This heuristic
+						// fails for Millisecond timestamps representing dates before Sept 9, 2001
+						// (value < 1e12).
+
 						// Is it a seconds timestamp or a milliseconds
 						// timestamp?
 						if v > 1e12 || v < -1e12 {
-							// time.Unix expects nanoseconds, but this is a
-							// milliseconds timestamp, so convert ms->ns.
-							v *= int64(time.Millisecond)
-							dest[i] = time.Unix(0, v).UTC()
+							// Milliseconds
+							dest[i] = r.c.applyTimezone(time.UnixMilli(v).UTC())
 						} else {
-							dest[i] = time.Unix(v, 0)
+							// Seconds
+							dest[i] = r.c.applyTimezone(time.Unix(v, 0).UTC())
 						}
 					default:
 						dest[i] = v
@@ -152,8 +194,31 @@ func (r *rows) Next(dest []driver.Value) (err error) {
 
 				switch r.ColumnTypeDatabaseTypeName(i) {
 				case "DATE", "DATETIME", "TIMESTAMP":
-					dest[i], _ = r.c.parseTime(v)
+					val, ok, idx := r.c.parseTime(v, int(r.parseFmtIdx[i]))
+					if ok && r.parseFmtIdx[i] < 0 && idx >= 0 {
+						r.parseFmtIdx[i] = int8(idx)
+					}
+					dest[i] = val
 				default:
+					// A TEXT column with no declared type. SQLite reports an
+					// empty decltype not only for aggregates and expressions
+					// over a date column (MAX/MIN/COALESCE, upper(x), x||''),
+					// but also for subqueries and for typeless real columns
+					// (CREATE TABLE t(x)). Any of these would be delivered as
+					// a raw string that Scan cannot store into *time.Time
+					// (#248). Under _texttotime, best-effort parse the value:
+					// on success deliver time.Time, otherwise fall back to the
+					// original string, so no Scan that worked before can newly
+					// fail.
+					if r.c.textToTime && r.decltypes[i] == "" {
+						if val, ok, idx := r.c.parseTime(v, int(r.parseFmtIdx[i])); ok {
+							if r.parseFmtIdx[i] < 0 && idx >= 0 {
+								r.parseFmtIdx[i] = int8(idx)
+							}
+							dest[i] = val
+							continue
+						}
+					}
 					dest[i] = v
 				}
 			case sqlite3.SQLITE_BLOB:
@@ -183,7 +248,7 @@ func (r *rows) Next(dest []driver.Value) (err error) {
 // "CHAR", "TEXT", "DECIMAL", "SMALLINT", "INT", "BIGINT", "BOOL", "[]BIGINT",
 // "JSONB", "XML", "TIMESTAMP".
 func (r *rows) ColumnTypeDatabaseTypeName(index int) string {
-	return strings.ToUpper(r.c.columnDeclType(r.pstmt, index))
+	return r.decltypes[index]
 }
 
 // RowsColumnTypeLength may be implemented by Rows. It should return the length
@@ -250,10 +315,10 @@ func (r *rows) ColumnTypeScanType(index int) reflect.Type {
 
 	switch t {
 	case sqlite3.SQLITE_INTEGER:
-		switch strings.ToLower(r.c.columnDeclType(r.pstmt, index)) {
-		case "boolean":
+		switch r.decltypes[index] {
+		case "BOOLEAN":
 			return reflect.TypeOf(false)
-		case "date", "datetime", "time", "timestamp":
+		case "DATE", "DATETIME", "TIME", "TIMESTAMP":
 			return reflect.TypeOf(time.Time{})
 		default:
 			return reflect.TypeOf(int64(0))
@@ -261,6 +326,12 @@ func (r *rows) ColumnTypeScanType(index int) reflect.Type {
 	case sqlite3.SQLITE_FLOAT:
 		return reflect.TypeOf(float64(0))
 	case sqlite3.SQLITE_TEXT:
+		if r.c.textToTime {
+			switch r.decltypes[index] {
+			case "DATE", "DATETIME", "TIME", "TIMESTAMP":
+				return reflect.TypeOf(time.Time{})
+			}
+		}
 		return reflect.TypeOf("")
 	case sqlite3.SQLITE_BLOB:
 		return reflect.TypeOf([]byte(nil))
