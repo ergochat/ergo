@@ -335,6 +335,7 @@ func authIRCv3BearerHandler(server *Server, client *Client, session *Session, va
 
 func sendAuthErrorResponse(client *Client, rb *ResponseBuffer, err error) {
 	msg := authErrorToMessage(client.server, err)
+	client.server.logger.Info("accounts", rb.session.ConnID(), "failed SASL authentication", "from IP", rb.session.IP().String())
 	rb.Add(nil, client.server.name, ERR_SASLFAIL, client.nick, fmt.Sprintf("%s: %s", client.t("SASL authentication failed"), client.t(msg)))
 	if err == errAccountUnverified {
 		rb.Add(nil, client.server.name, "NOTE", "AUTHENTICATE", "VERIFICATION_REQUIRED", "*", client.t(err.Error()))
@@ -2722,15 +2723,16 @@ func operHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 		rb.Add(nil, server.name, ERR_NOOPERHOST, client.Nick(), client.t("OPER failed; check the server logs for details."))
 
 		// hopefully not too spammy given the throttling:
+		ip := rb.session.IP().String()
 		if oper == nil {
-			server.logger.Info("opers", "OPER failed with invalid oper name", msg.Params[0])
+			server.logger.Info("opers", "OPER failed with invalid oper name", msg.Params[0], "from IP", ip)
 		} else if certFailed {
-			server.logger.Info("opers", "OPER attempt for", msg.Params[0], "failed with invalid certfp")
+			server.logger.Info("opers", "OPER attempt for", msg.Params[0], "failed with invalid certfp", "from IP", ip)
 		} else if passwordFailed {
-			server.logger.Info("opers", "OPER attempt for", msg.Params[0], "failed with invalid password")
+			server.logger.Info("opers", "OPER attempt for", msg.Params[0], "failed with invalid password", "from IP", ip)
 		} else {
 			// should not be possible given config validation
-			server.logger.Info("opers", "OPER attempt for", msg.Params[0], "failed with invalid config")
+			server.logger.Info("opers", "OPER attempt for", msg.Params[0], "failed with invalid config", "from IP", ip)
 		}
 
 		return false
