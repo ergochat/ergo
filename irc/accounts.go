@@ -1447,8 +1447,21 @@ func (am *AccountManager) rehashPassword(accountName, passphrase string) {
 	}
 }
 
+// loadWithAutocreation loads an account, creating it if it doesn't exist;
+// this is intended for use with externally managed credential systems
+// like auth-script or bearer tokens. if the account exists but is unverified
+// or suspended, we return an error here (unlike LoadAccount) to indicate
+// that login is unavailable.
 func (am *AccountManager) loadWithAutocreation(accountName string, autocreate bool) (account ClientAccount, err error) {
 	account, err = am.LoadAccount(accountName)
+	if err == nil {
+		if !account.Verified {
+			err = errAccountUnverified
+		} else if account.Suspended != nil {
+			err = errAccountSuspended
+		}
+		return
+	}
 	if err == errAccountDoesNotExist && autocreate {
 		err = am.SARegister(accountName, "")
 		if err != nil {
@@ -2269,6 +2282,11 @@ func (am *AccountManager) applyVhostToClients(account string, result VHostInfo) 
 }
 
 func (am *AccountManager) Login(client *Client, account ClientAccount) {
+	if !account.Verified || account.Suspended != nil {
+		// defensive check, we shouldn't have gotten this far but fail here anyway
+		am.server.logger.Error("accounts", "Login() reached for unverified or suspended account", account.Name, client.Nick())
+		return
+	}
 	client.Login(account)
 
 	am.applyVHostInfo(client, account.VHost)
@@ -2408,6 +2426,14 @@ func (am *AccountManager) lookupSCRAMCreds(accountName string) (creds scram.Stor
 
 	acct, err := am.LoadAccount(accountName)
 	if err != nil {
+		return
+	}
+	if !acct.Verified {
+		err = errAccountUnverified
+		return
+	}
+	if acct.Suspended != nil {
+		err = errAccountSuspended
 		return
 	}
 	if acct.Credentials.SCRAMCreds.Iters == 0 {
