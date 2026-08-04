@@ -18,6 +18,9 @@ import (
 
 var (
 	errInternalIP = errors.New("dialing an internal IP is forbidden")
+
+	// carrier-grade NAT IP space, used by Tailscale among others as private space
+	cgnatPrefix = netip.MustParsePrefix("100.64.0.0/10")
 )
 
 func SanityCheckWebPushEndpoint(endpoint string) error {
@@ -62,5 +65,12 @@ func makeExternalOnlyClient() *http.Client {
 }
 
 func isInternalIP(ip netip.Addr) bool {
-	return ip.IsLoopback() || ip.IsMulticast() || ip.IsPrivate()
+	ip = ip.Unmap()           // remove 6-in-4 mapping, needed for (netip.Prefix).Contains()
+	return ip.IsLoopback() || // localhost (127.0.0.0/8 and ::1)
+		ip.IsUnspecified() || // 0.0.0.0 and ::0 redirect to localhost on Linux
+		ip.IsMulticast() || // multicast addresses
+		ip.IsPrivate() || // private spaces like 192.168.0.0/16
+		ip.IsLinkLocalUnicast() || // link-local addresses like 169.254.169.254
+		cgnatPrefix.Contains(ip) // CGNAT space, 100.64.0.0/10
+	// (IsLinkLocalMulticast and IsInterfaceLocalMulticast are covered by IsMulticast)
 }
