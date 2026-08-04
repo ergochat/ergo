@@ -2970,7 +2970,7 @@ func redactHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 		}
 	}
 
-	err := server.DeleteMessage(target, targetmsgid, accountName)
+	err := server.DeleteMessage(canDelete, target, targetmsgid, accountName)
 	switch err {
 	case history.ErrNotFound:
 		rb.Add(nil, server.name, "FAIL", "REDACT", "UNKNOWN_MSGID", utils.SafeErrorParam(target), utils.SafeErrorParam(targetmsgid), client.t("This message does not exist or is too old"))
@@ -2993,7 +2993,7 @@ func redactHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 	if target[0] != '#' {
 		// If this is a PM, we just removed the message from the buffer of the other party;
 		// now we have to remove it from the buffer of the client who sent the REDACT command
-		err := server.DeleteMessage(client.Nick(), targetmsgid, accountName)
+		err := server.DeleteMessage(canDelete, client.Nick(), targetmsgid, accountName)
 
 		// ErrNotFound is expected if both clients are using persistent history
 		if err != nil && err != history.ErrNotFound {

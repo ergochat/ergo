@@ -1268,10 +1268,15 @@ func (server *Server) ForgetHistory(accountName string) {
 	}
 }
 
-// deletes a message. target is a hint about what buffer it's in (not required for
-// persistent history, where all the msgids are indexed together). if accountName
-// is anything other than "*", it must match the recorded AccountName of the message
-func (server *Server) DeleteMessage(target, msgid, accountName string) (err error) {
+// Deletes a message, enforcing policy/integrity checks. `target` is the
+// name of the channel or DM recipient (validated under canDeleteChannel).
+// `accountName` is the case-unfolded account name of the sender (validated
+// for canDeleteSelf).
+func (server *Server) DeleteMessage(canDelete CanDelete, target, msgid, accountName string) (err error) {
+	if canDelete == canDeleteNone {
+		return history.ErrDisallowed
+	}
+
 	config := server.Config()
 	var hist *history.Buffer
 
@@ -1294,17 +1299,50 @@ func (server *Server) DeleteMessage(target, msgid, accountName string) (err erro
 	}
 
 	if hist == nil {
-		err = server.historyDB.DeleteMsgid(msgid, accountName)
+		// persistent history
+		if canDelete != canDeleteAny {
+			var retrievedTarget string
+			var item history.Item
+			retrievedTarget, item, err = server.historyDB.LoadMsgid(msgid)
+			if err != nil {
+				return
+			}
+			if canDelete == canDeleteChannel {
+				t1, e1 := CasefoldChannel(target)
+				t2, e2 := CasefoldChannel(retrievedTarget)
+				if e1 != nil || e2 != nil || t1 != t2 {
+					err = history.ErrDisallowed
+					return
+				}
+			} else if canDelete == canDeleteSelf {
+				if accountName == "*" || accountName != item.AccountName {
+					err = history.ErrDisallowed
+					return
+				}
+			}
+		}
+		return server.historyDB.DeleteMsgid(msgid)
 	} else {
+		// ephemeral history
 		count := hist.Delete(func(item *history.Item) bool {
-			return item.Message.Msgid == msgid && (accountName == "*" || item.AccountName == accountName)
+			if item.Message.Msgid != msgid {
+				return false
+			}
+			if canDelete == canDeleteSelf {
+				allowed := accountName != "*" && item.AccountName == accountName
+				if !allowed {
+					err = history.ErrDisallowed
+				}
+				return allowed
+			} else {
+				return true
+			}
 		})
-		if count == 0 {
+		if count == 0 && err == nil {
 			err = history.ErrNotFound
 		}
+		return
 	}
-
-	return
 }
 
 func (server *Server) UnfoldName(cfname string) (name string) {

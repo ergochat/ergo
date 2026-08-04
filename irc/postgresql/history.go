@@ -746,16 +746,15 @@ func (pg *PostgreSQL) AddDirectMessage(sender, senderAccount, recipient, recipie
 	return
 }
 
-// note that accountName is the unfolded name
-func (pg *PostgreSQL) DeleteMsgid(msgid, accountName string) (err error) {
+func (pg *PostgreSQL) DeleteMsgid(msgid string) (err error) {
 	if pg.db == nil {
-		return nil
+		return history.ErrNotFound
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), pg.getTimeout())
 	defer cancel()
 
-	_, id, data, err := pg.lookupMsgid(ctx, msgid, true)
+	_, id, _, _, err := pg.lookupMsgid(ctx, msgid, true)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return history.ErrNotFound
@@ -763,19 +762,31 @@ func (pg *PostgreSQL) DeleteMsgid(msgid, accountName string) (err error) {
 		return
 	}
 
-	if accountName != "*" {
-		var item history.Item
-		err = history.UnmarshalItem(data, &item)
-		// delete if the entry is corrupt
-		if err == nil && item.AccountName != accountName {
-			return history.ErrDisallowed
-		}
-	}
-
 	err = pg.deleteHistoryIDs(ctx, []uint64{id})
 	if err != nil {
 		return fmt.Errorf("couldn't delete msgid: %w", err)
 	}
+	return
+}
+
+func (pg *PostgreSQL) LoadMsgid(msgid string) (channel string, item history.Item, err error) {
+	if pg.db == nil {
+		err = history.ErrNotFound
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), pg.getTimeout())
+	defer cancel()
+
+	_, _, channel, data, err := pg.lookupMsgid(ctx, msgid, true)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			err = history.ErrNotFound
+		}
+		return
+	}
+
+	err = history.UnmarshalItem(data, &item)
 	return
 }
 
@@ -838,7 +849,7 @@ func (pg *PostgreSQL) Export(account string, writer io.Writer) {
 	return
 }
 
-func (pg *PostgreSQL) lookupMsgid(ctx context.Context, msgid string, includeData bool) (result time.Time, id uint64, data []byte, err error) {
+func (pg *PostgreSQL) lookupMsgid(ctx context.Context, msgid string, includeData bool) (result time.Time, id uint64, channel string, data []byte, err error) {
 	decoded, err := utils.DecodeSecretToken(msgid)
 	if err != nil {
 		// use sql.ErrNoRows internally for consistency, translate to history.ErrNotFound
@@ -848,7 +859,7 @@ func (pg *PostgreSQL) lookupMsgid(ctx context.Context, msgid string, includeData
 	}
 	cols := `sequence.nanotime, conversations.nanotime`
 	if includeData {
-		cols = `sequence.nanotime, conversations.nanotime, history.id, history.data`
+		cols = `sequence.nanotime, conversations.nanotime, sequence.target, history.id, history.data`
 	}
 	row := pg.db.QueryRowContext(ctx, fmt.Sprintf(`
 		SELECT %s FROM history
@@ -859,7 +870,12 @@ func (pg *PostgreSQL) lookupMsgid(ctx context.Context, msgid string, includeData
 	if !includeData {
 		err = row.Scan(&nanoSeq, &nanoConv)
 	} else {
-		err = row.Scan(&nanoSeq, &nanoConv, &id, &data)
+		// sequence.target is NOT NULL in the schema, but can be NULL here due to LEFT JOIN
+		var target *string
+		err = row.Scan(&nanoSeq, &nanoConv, &target, &id, &data)
+		if err == nil && target != nil {
+			channel = *target
+		}
 	}
 	if err != nil {
 		if err != sql.ErrNoRows {
@@ -1096,7 +1112,7 @@ func (s *postgreSQLHistorySequence) Between(start, end history.Selector, limit i
 
 	startTime := start.Time
 	if start.Msgid != "" {
-		startTime, _, _, err = s.pg.lookupMsgid(ctx, start.Msgid, false)
+		startTime, _, _, _, err = s.pg.lookupMsgid(ctx, start.Msgid, false)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, nil
@@ -1107,7 +1123,7 @@ func (s *postgreSQLHistorySequence) Between(start, end history.Selector, limit i
 	}
 	endTime := end.Time
 	if end.Msgid != "" {
-		endTime, _, _, err = s.pg.lookupMsgid(ctx, end.Msgid, false)
+		endTime, _, _, _, err = s.pg.lookupMsgid(ctx, end.Msgid, false)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, nil
