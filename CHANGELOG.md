@@ -1,6 +1,22 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
+## [2.19.1] - 2026-08-04
+
+Ergo 2.19.1 is a release addressing recently reported security vulnerabilities, some of which are serious. We urge all affected deployments to upgrade as soon as possible.
+
+This release includes no changes to the config file format or database file format.
+
+Many thanks to [@ajaspers](https://github.com/ajaspers) and [@tonghuaroot](https://github.com/tonghuaroot) for discovering and responsibly disclosing these issues.
+
+### Security
+* Fixed users being able to bypass account email verification or account suspension ([GHSA-x6wg-9hcg-fc9v](https://github.com/ergochat/ergo/security/advisories/GHSA-x6wg-9hcg-fc9v), thanks [@ajaspers](https://github.com/ajaspers)!)
+* Fixed incorrect permissions controls for message redaction ([GHSA-8cmp-fc56-7g44](https://github.com/ergochat/ergo/security/advisories/GHSA-8cmp-fc56-7g44), thanks [@ajaspers](https://github.com/ajaspers)!)
+* Fixed blind SSRF attacks against internal IPs via webpush extension ([GHSA-7pw8-m2w2-f545](https://github.com/ergochat/ergo/security/advisories/GHSA-7pw8-m2w2-f545), thanks [@tonghuaroot](https://github.com/tonghuaroot)!)
+
+### Internal
+* Release builds use Go 1.26.5
+
 ## [2.19.0] - 2026-07-21
 
 We're pleased to be publishing v2.19.0, a new stable release. This release contains IRCv3 specification-related updates, bug fixes, and minor enhancements.
