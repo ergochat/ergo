@@ -18,9 +18,10 @@ import (
 type CanDelete uint
 
 const (
-	canDeleteAny  CanDelete = iota // User is allowed to delete any message (for a given channel/PM)
-	canDeleteSelf                  // User is allowed to delete their own messages (ditto)
-	canDeleteNone                  // User is not allowed to delete any message (ditto)
+	canDeleteNone    CanDelete = iota // User is not allowed to delete any message
+	canDeleteAny                      // User is allowed to delete any message
+	canDeleteChannel                  // User is a chanop and can delete from the associated channel
+	canDeleteSelf                     // User is allowed to delete their own messages
 )
 
 const (
@@ -100,14 +101,6 @@ func histservForgetHandler(service *ircService, server *Server, client *Client, 
 	service.Notice(rb, fmt.Sprintf(client.t("Enqueued account %s for message deletion"), accountName))
 }
 
-// Returns:
-//
-// 1. `canDeleteAny` if the client allowed to delete other users' messages from the target, ie.:
-//   - the client is a channel operator, or
-//   - the client is an operator with "history" capability
-//
-// 2. `canDeleteSelf` if the client is allowed to delete their own messages from the target
-// 3. `canDeleteNone` otherwise
 func deletionPolicy(server *Server, client *Client, target string) CanDelete {
 	isOper := client.HasRoleCapabs("history")
 	if isOper {
@@ -116,7 +109,7 @@ func deletionPolicy(server *Server, client *Client, target string) CanDelete {
 		if server.Config().History.Retention.AllowIndividualDelete {
 			channel := server.channels.Get(target)
 			if channel != nil && channel.ClientIsAtLeast(client, modes.Operator) {
-				return canDeleteAny
+				return canDeleteChannel
 			} else {
 				return canDeleteSelf
 			}
@@ -142,13 +135,17 @@ func histservDeleteHandler(service *ircService, server *Server, client *Client, 
 		}
 	}
 
-	err := server.DeleteMessage(target, msgid, accountName)
+	err := server.DeleteMessage(canDelete, target, msgid, accountName)
 	if err == nil {
 		service.Notice(rb, client.t("Successfully deleted message"))
 	} else {
 		isOper := client.HasRoleCapabs("history")
 		if isOper {
 			service.Notice(rb, fmt.Sprintf(client.t("Error deleting message: %v"), err))
+		} else if err == history.ErrDisallowed {
+			service.Notice(rb, client.t("Insufficient privileges to delete message"))
+		} else if err == history.ErrNotFound {
+			service.Notice(rb, client.t("Message not found"))
 		} else {
 			service.Notice(rb, client.t("Could not delete message"))
 		}

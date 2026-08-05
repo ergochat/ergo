@@ -719,15 +719,14 @@ func (s *SQLite) AddDirectMessage(sender, senderAccount, recipient, recipientAcc
 	return
 }
 
-// note that accountName is the unfolded name
-func (s *SQLite) DeleteMsgid(msgid, accountName string) (err error) {
+func (s *SQLite) DeleteMsgid(msgid string) (err error) {
 	if s.db == nil {
-		return nil
+		return history.ErrNotFound
 	}
 
 	ctx := context.Background()
 
-	_, id, data, err := s.lookupMsgid(ctx, msgid, true)
+	_, id, _, _, err := s.lookupMsgid(ctx, msgid, true)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return history.ErrNotFound
@@ -735,19 +734,30 @@ func (s *SQLite) DeleteMsgid(msgid, accountName string) (err error) {
 		return
 	}
 
-	if accountName != "*" {
-		var item history.Item
-		err = history.UnmarshalItem(data, &item)
-		// delete if the entry is corrupt
-		if err == nil && item.AccountName != accountName {
-			return history.ErrDisallowed
-		}
-	}
-
 	err = s.deleteHistoryIDs(ctx, []uint64{id})
 	if err != nil {
 		return fmt.Errorf("couldn't delete msgid: %w", err)
 	}
+	return
+}
+
+func (s *SQLite) LoadMsgid(msgid string) (channel string, item history.Item, err error) {
+	if s.db == nil {
+		err = history.ErrNotFound
+		return
+	}
+
+	ctx := context.Background()
+
+	_, _, channel, data, err := s.lookupMsgid(ctx, msgid, true)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			err = history.ErrNotFound
+		}
+		return
+	}
+
+	err = history.UnmarshalItem(data, &item)
 	return
 }
 
@@ -810,11 +820,11 @@ func (s *SQLite) Export(account string, writer io.Writer) {
 	return
 }
 
-func (s *SQLite) lookupMsgid(ctx context.Context, msgid string, includeData bool) (result time.Time, id uint64, data []byte, err error) {
+func (s *SQLite) lookupMsgid(ctx context.Context, msgid string, includeData bool) (result time.Time, id uint64, channel string, data []byte, err error) {
 	// msgid is already ASCII text, no need to decode
 	cols := `sequence.nanotime, conversations.nanotime`
 	if includeData {
-		cols = `sequence.nanotime, conversations.nanotime, history.id, history.data`
+		cols = `sequence.nanotime, conversations.nanotime, sequence.target, history.id, history.data`
 	}
 	row := s.db.QueryRowContext(ctx, fmt.Sprintf(`
 		SELECT %s FROM history
@@ -825,7 +835,12 @@ func (s *SQLite) lookupMsgid(ctx context.Context, msgid string, includeData bool
 	if !includeData {
 		err = row.Scan(&nanoSeq, &nanoConv)
 	} else {
-		err = row.Scan(&nanoSeq, &nanoConv, &id, &data)
+		// sequence.target is NOT NULL in the schema, but can be NULL here due to LEFT JOIN
+		var target *string
+		err = row.Scan(&nanoSeq, &nanoConv, &target, &id, &data)
+		if err == nil && target != nil {
+			channel = *target
+		}
 	}
 	if err != nil {
 		if err != sql.ErrNoRows {
@@ -1036,7 +1051,7 @@ func (s *sqliteHistorySequence) Between(start, end history.Selector, limit int) 
 
 	startTime := start.Time
 	if start.Msgid != "" {
-		startTime, _, _, err = s.sqlite.lookupMsgid(ctx, start.Msgid, false)
+		startTime, _, _, _, err = s.sqlite.lookupMsgid(ctx, start.Msgid, false)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, nil
@@ -1047,7 +1062,7 @@ func (s *sqliteHistorySequence) Between(start, end history.Selector, limit int) 
 	}
 	endTime := end.Time
 	if end.Msgid != "" {
-		endTime, _, _, err = s.sqlite.lookupMsgid(ctx, end.Msgid, false)
+		endTime, _, _, _, err = s.sqlite.lookupMsgid(ctx, end.Msgid, false)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return nil, nil
