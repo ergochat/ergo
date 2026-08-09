@@ -335,7 +335,8 @@ func authIRCv3BearerHandler(server *Server, client *Client, session *Session, va
 
 func sendAuthErrorResponse(client *Client, rb *ResponseBuffer, err error) {
 	msg := authErrorToMessage(client.server, err)
-	client.server.logger.Info("accounts", rb.session.ConnID(), "failed SASL authentication", "from IP", rb.session.IP().String())
+	client.server.logger.Info("accounts", rb.session.ConnID(), "failed SASL authentication")
+	client.server.logger.Info("connect-ip", rb.session.ConnID(), "failed SASL authentication from", rb.session.IP().String())
 	rb.Add(nil, client.server.name, ERR_SASLFAIL, client.nick, fmt.Sprintf("%s: %s", client.t("SASL authentication failed"), client.t(msg)))
 	if err == errAccountUnverified {
 		rb.Add(nil, client.server.name, "NOTE", "AUTHENTICATE", "VERIFICATION_REQUIRED", "*", client.t(err.Error()))
@@ -2724,16 +2725,22 @@ func operHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respons
 
 		// hopefully not too spammy given the throttling:
 		ip := rb.session.IP().String()
+		var reason string
 		if oper == nil {
-			server.logger.Info("opers", "OPER failed with invalid oper name", msg.Params[0], "from IP", ip)
+			reason = "invalid oper name"
+			server.logger.Info("opers", "OPER failed with invalid oper name", msg.Params[0])
 		} else if certFailed {
-			server.logger.Info("opers", "OPER attempt for", msg.Params[0], "failed with invalid certfp", "from IP", ip)
+			reason = "invalid certfp"
+			server.logger.Info("opers", "OPER attempt for", msg.Params[0], "failed with invalid certfp")
 		} else if passwordFailed {
-			server.logger.Info("opers", "OPER attempt for", msg.Params[0], "failed with invalid password", "from IP", ip)
+			reason = "invalid password"
+			server.logger.Info("opers", "OPER attempt for", msg.Params[0], "failed with invalid password")
 		} else {
 			// should not be possible given config validation
-			server.logger.Info("opers", "OPER attempt for", msg.Params[0], "failed with invalid config", "from IP", ip)
+			reason = "invalid config"
+			server.logger.Info("opers", "OPER attempt for", msg.Params[0], "failed with invalid config")
 		}
+		server.logger.Info("connect-ip", rb.session.ConnID(), "OPER attempt for", msg.Params[0], "failed with", reason, "from", ip)
 
 		return false
 	}

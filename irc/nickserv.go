@@ -876,7 +876,8 @@ func nsIdentifyHandler(service *ircService, server *Server, client *Client, comm
 	if loginSuccessful {
 		sendSuccessfulAccountAuth(service, client, rb, true)
 	} else if !nickFixupFailed {
-		server.logger.Info("accounts", rb.session.ConnID(), "failed IDENTIFY as", username, "from IP", rb.session.IP().String())
+		server.logger.Info("accounts", rb.session.ConnID(), "failed IDENTIFY as", username)
+		server.logger.Info("connect-ip", rb.session.ConnID(), "failed IDENTIFY as", username, "from", rb.session.IP().String())
 		service.Notice(rb, fmt.Sprintf(client.t("Authentication failed: %s"), authErrorToMessage(server, err)))
 	}
 }
