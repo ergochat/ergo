@@ -2935,7 +2935,7 @@ func redactHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 	var canDelete CanDelete
 
 	msgid := utils.GenerateSecretToken()
-	time := time.Now().UTC().Round(0)
+	now := time.Now().UTC().Round(0)
 	details := client.Details()
 	isBot := client.HasMode(modes.Bot)
 
@@ -3007,14 +3007,19 @@ func redactHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respo
 		}
 	}
 
+	var params []string
+	if reasonPresent {
+		params = []string{target, targetmsgid, reason}
+	} else {
+		params = []string{target, targetmsgid}
+	}
+
+	rb.AddFromClient(now, msgid, details.nickMask, details.accountName, isBot, nil, "REDACT", params...)
+
 	for _, member := range members {
 		for _, session := range member.Sessions() {
-			if session.capabilities.Has(caps.MessageRedaction) {
-				if reasonPresent {
-					session.sendFromClientInternal(false, time, msgid, details.nickMask, details.accountName, isBot, nil, "REDACT", target, targetmsgid, reason)
-				} else {
-					session.sendFromClientInternal(false, time, msgid, details.nickMask, details.accountName, isBot, nil, "REDACT", target, targetmsgid)
-				}
+			if session.capabilities.Has(caps.MessageRedaction) && session != rb.session {
+				session.sendFromClientInternal(false, now, msgid, details.nickMask, details.accountName, isBot, nil, "REDACT", params...)
 			} else {
 				// If we wanted to send a fallback to clients which do not support
 				// draft/message-redaction, we would do it from here.
