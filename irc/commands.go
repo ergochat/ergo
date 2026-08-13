@@ -117,8 +117,9 @@ func init() {
 			minParams:    0,
 		},
 		"BATCH": {
-			handler:   batchHandler,
-			minParams: 1,
+			handler:      batchHandler,
+			minParams:    1,
+			usablePreReg: true,
 		},
 		"CAP": {
 			handler:      capHandler,
