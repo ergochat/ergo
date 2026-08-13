@@ -585,6 +585,10 @@ func batchHandler(server *Server, client *Client, msg ircmsg.Message, rb *Respon
 }
 
 func batchHandlerMultiline(server *Server, client *Client, msg ircmsg.Message, rb *ResponseBuffer) bool {
+	if !client.registered {
+		rb.Add(nil, server.name, ERR_NOTREGISTERED, "*", client.t("You need to register before you can use that command"))
+		return false
+	}
 	tag := msg.Params[0]
 	fail := false
 	sendErrors := rb.session.multilineBatch.command != "NOTICE"
