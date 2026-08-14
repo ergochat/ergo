@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ergochat/ergo/irc/caps"
 	"github.com/ergochat/ergo/irc/utils"
 	"github.com/ergochat/irc-go/ircfmt"
 	"github.com/ergochat/irc-go/ircmsg"
@@ -238,6 +239,7 @@ func serviceHelpHandler(service *ircService, server *Server, client *Client, par
 		rb.Add(nil, service.prefix, "NOTICE", nick, notice)
 	}
 
+	batchId := rb.StartNestedBatch(map[string]string{}, service.prefix, caps.MultilineBatchType, nick)
 	sendNotice(fmt.Sprintf(ircfmt.Unescape("*** $b%s HELP$b ***"), service.Name))
 
 	if len(params) == 0 {
@@ -305,6 +307,7 @@ func serviceHelpHandler(service *ircService, server *Server, client *Client, par
 	}
 
 	sendNotice(fmt.Sprintf(ircfmt.Unescape(client.t("*** $bEnd of %s HELP$b ***")), service.Name))
+	rb.EndNestedBatch(batchId)
 }
 
 func makeServiceHelpTextGenerator(cmd string, banner string) func(*Client) string {
