@@ -1383,14 +1383,14 @@ func (matcher *elistMatcher) Matches(channel *Channel) bool {
 
 var (
 	infoString1 = strings.Split(`
-      __ __  ______ ___  ______ ___
+	  __ __  ______ ___  ______ ___ 
    __/ // /_/ ____/ __ \/ ____/ __ \
   /_  // __/ __/ / /_/ / / __/ / / /
- /_  // __/ /___/ _, _/ /_/ / /_/ /
-  /_//_/ /_____/_/ |_|\____/\____/
+ /_  // __/ /___/ _, _/ /_/ / /_/ / 
+  /_//_/ /_____/_/ |_|\____/\____/  
 
          https://ergo.chat/
-  https://github.com/ergochat/ergo
+  https://github.com/ergochat/ergo  
 `, "\n")[1:]  // XXX: cut off initial blank line
 	infoString2 = strings.Split(`    Daniel Oakley,          DanielOaks,    <daniel@danieloaks.net>
     Shivaram Lingamneni,    slingamn,      <slingamn@cs.stanford.edu>
