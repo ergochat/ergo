@@ -1383,7 +1383,7 @@ func (matcher *elistMatcher) Matches(channel *Channel) bool {
 
 var (
 	infoString1 = strings.Split(`
-	  __ __  ______ ___  ______ ___ 
+      __ __  ______ ___  ______ ___ 
    __/ // /_/ ____/ __ \/ ____/ __ \
   /_  // __/ __/ / /_/ / / __/ / / /
  /_  // __/ /___/ _, _/ /_/ / /_/ / 
