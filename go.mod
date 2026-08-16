@@ -12,7 +12,7 @@ require (
 	github.com/go-sql-driver/mysql v1.10.0
 	github.com/gofrs/flock v0.8.1
 	github.com/gorilla/websocket v1.4.2
-	github.com/okzk/sdnotify v0.0.0-20180710141335-d9becc38acbd
+	github.com/okzk/sdnotify v0.0.0-20240725214427-1c1fdd37c5ac
 	github.com/onsi/ginkgo v1.12.0 // indirect
 	github.com/onsi/gomega v1.9.0 // indirect
 	github.com/tidwall/buntdb v1.3.2
