@@ -719,37 +719,68 @@ func (s *SQLite) AddDirectMessage(sender, senderAccount, recipient, recipientAcc
 	return
 }
 
-func (s *SQLite) DeleteMsgid(msgid string) (err error) {
+func (s *SQLite) DeleteMsgid(target, msgid string) (err error) {
 	if s.db == nil {
 		return history.ErrNotFound
 	}
 
 	ctx := context.Background()
-
-	_, id, _, _, err := s.lookupMsgid(ctx, msgid, true)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return history.ErrNotFound
+	var ids []uint64
+	if target == "" {
+		_, id, _, _, err := s.lookupMsgid(ctx, msgid, true)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return history.ErrNotFound
+			}
+			return err
 		}
-		return
+		ids = append(ids, id)
+	} else {
+		rows, err := s.db.QueryContext(ctx, `SELECT history.id FROM history
+			INNER JOIN sequence ON history.id = sequence.history_id
+			WHERE sequence.target = ? AND history.msgid = ?;`, target, msgid)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id uint64
+			if err = rows.Scan(&id); err != nil {
+				return err
+			}
+			ids = append(ids, id)
+		}
+		if err = rows.Err(); err != nil {
+			return err
+		}
+		if err = rows.Close(); err != nil {
+			return err
+		}
 	}
-
-	err = s.deleteHistoryIDs(ctx, []uint64{id})
-	if err != nil {
+	if len(ids) == 0 {
+		return history.ErrNotFound
+	}
+	if err = s.deleteHistoryIDs(ctx, ids); err != nil {
 		return fmt.Errorf("couldn't delete msgid: %w", err)
 	}
-	return
+	return nil
 }
 
-func (s *SQLite) LoadMsgid(msgid string) (channel string, item history.Item, err error) {
+func (s *SQLite) LoadMsgid(target, msgid string) (channel string, item history.Item, err error) {
 	if s.db == nil {
 		err = history.ErrNotFound
 		return
 	}
 
 	ctx := context.Background()
-
-	_, _, channel, data, err := s.lookupMsgid(ctx, msgid, true)
+	var data []byte
+	if target != "" {
+		err = s.db.QueryRowContext(ctx, `SELECT sequence.target, history.data FROM history
+			INNER JOIN sequence ON history.id = sequence.history_id
+			WHERE sequence.target = ? AND history.msgid = ? LIMIT 1;`, target, msgid).Scan(&channel, &data)
+	} else {
+		_, _, channel, data, err = s.lookupMsgid(ctx, msgid, true)
+	}
 	if err != nil {
 		if err == sql.ErrNoRows {
 			err = history.ErrNotFound

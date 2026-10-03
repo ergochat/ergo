@@ -1294,10 +1294,17 @@ func (server *Server) DeleteMessage(canDelete CanDelete, target, msgid, accountN
 
 	if hist == nil {
 		// persistent history
+		historyTarget := ""
+		if strings.HasPrefix(target, "#") {
+			historyTarget, err = CasefoldChannel(target)
+			if err != nil {
+				return history.ErrNotFound
+			}
+		}
 		if canDelete != canDeleteAny {
 			var retrievedTarget string
 			var item history.Item
-			retrievedTarget, item, err = server.historyDB.LoadMsgid(msgid)
+			retrievedTarget, item, err = server.historyDB.LoadMsgid(historyTarget, msgid)
 			if err != nil {
 				return
 			}
@@ -1315,7 +1322,7 @@ func (server *Server) DeleteMessage(canDelete CanDelete, target, msgid, accountN
 				}
 			}
 		}
-		return server.historyDB.DeleteMsgid(msgid)
+		return server.historyDB.DeleteMsgid(historyTarget, msgid)
 	} else {
 		// ephemeral history
 		count := hist.Delete(func(item *history.Item) bool {

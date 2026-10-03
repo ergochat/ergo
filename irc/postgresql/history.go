@@ -746,7 +746,7 @@ func (pg *PostgreSQL) AddDirectMessage(sender, senderAccount, recipient, recipie
 	return
 }
 
-func (pg *PostgreSQL) DeleteMsgid(msgid string) (err error) {
+func (pg *PostgreSQL) DeleteMsgid(target, msgid string) (err error) {
 	if pg.db == nil {
 		return history.ErrNotFound
 	}
@@ -754,22 +754,52 @@ func (pg *PostgreSQL) DeleteMsgid(msgid string) (err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), pg.getTimeout())
 	defer cancel()
 
-	_, id, _, _, err := pg.lookupMsgid(ctx, msgid, true)
-	if err != nil {
-		if err == sql.ErrNoRows {
+	var ids []uint64
+	if target == "" {
+		_, id, _, _, err := pg.lookupMsgid(ctx, msgid, true)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return history.ErrNotFound
+			}
+			return err
+		}
+		ids = append(ids, id)
+	} else {
+		decoded, err := utils.DecodeSecretToken(msgid)
+		if err != nil {
 			return history.ErrNotFound
 		}
-		return
+		rows, err := pg.db.QueryContext(ctx, `SELECT history.id FROM history
+			INNER JOIN sequence ON history.id = sequence.history_id
+			WHERE sequence.target = $1 AND history.msgid = $2;`, target, decoded)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id uint64
+			if err = rows.Scan(&id); err != nil {
+				return err
+			}
+			ids = append(ids, id)
+		}
+		if err = rows.Err(); err != nil {
+			return err
+		}
+		if err = rows.Close(); err != nil {
+			return err
+		}
 	}
-
-	err = pg.deleteHistoryIDs(ctx, []uint64{id})
-	if err != nil {
+	if len(ids) == 0 {
+		return history.ErrNotFound
+	}
+	if err = pg.deleteHistoryIDs(ctx, ids); err != nil {
 		return fmt.Errorf("couldn't delete msgid: %w", err)
 	}
-	return
+	return nil
 }
 
-func (pg *PostgreSQL) LoadMsgid(msgid string) (channel string, item history.Item, err error) {
+func (pg *PostgreSQL) LoadMsgid(target, msgid string) (channel string, item history.Item, err error) {
 	if pg.db == nil {
 		err = history.ErrNotFound
 		return
@@ -778,7 +808,19 @@ func (pg *PostgreSQL) LoadMsgid(msgid string) (channel string, item history.Item
 	ctx, cancel := context.WithTimeout(context.Background(), pg.getTimeout())
 	defer cancel()
 
-	_, _, channel, data, err := pg.lookupMsgid(ctx, msgid, true)
+	var data []byte
+	if target != "" {
+		decoded, decodeErr := utils.DecodeSecretToken(msgid)
+		if decodeErr != nil {
+			err = history.ErrNotFound
+			return
+		}
+		err = pg.db.QueryRowContext(ctx, `SELECT sequence.target, history.data FROM history
+			INNER JOIN sequence ON history.id = sequence.history_id
+			WHERE sequence.target = $1 AND history.msgid = $2 LIMIT 1;`, target, decoded).Scan(&channel, &data)
+	} else {
+		_, _, channel, data, err = pg.lookupMsgid(ctx, msgid, true)
+	}
 	if err != nil {
 		if err == sql.ErrNoRows {
 			err = history.ErrNotFound

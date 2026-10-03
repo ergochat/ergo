@@ -28,13 +28,14 @@ type Database interface {
 	// All identifiers are casefolded; account identifiers are "" for no account.
 	AddDirectMessage(sender, senderAccount, recipient, recipientAccount string, item Item) error
 
-	// LoadMsgid loads a message by its msgid. It returns the deserialized
-	// message and the name of the associated channel (if any),
-	// in an undefined state of case normalization.
-	LoadMsgid(msgid string) (channel string, item Item, err error)
+	// LoadMsgid loads a message by its msgid. If target is nonempty, it only
+	// searches that casefolded channel target. The returned target may have
+	// undefined case normalization.
+	LoadMsgid(target, msgid string) (channel string, item Item, err error)
 
-	// DeleteMsgid deletes a message by its msgid.
-	DeleteMsgid(msgid string) error
+	// DeleteMsgid deletes messages with the given msgid. A nonempty target scopes
+	// deletion to that casefolded channel; an empty target uses the direct-message lookup.
+	DeleteMsgid(target, msgid string) error
 
 	// MakeSequence creates a Sequence for querying history.
 	// target is the primary target (channel or account), casefolded.
@@ -81,12 +82,12 @@ func (n noopDatabase) AddDirectMessage(sender, senderAccount, recipient, recipie
 	return nil
 }
 
-func (n noopDatabase) LoadMsgid(msgid string) (target string, item Item, err error) {
+func (n noopDatabase) LoadMsgid(target, msgid string) (channel string, item Item, err error) {
 	err = ErrNotFound
 	return
 }
 
-func (n noopDatabase) DeleteMsgid(msgid string) error {
+func (n noopDatabase) DeleteMsgid(target, msgid string) error {
 	return ErrNotFound
 }
 

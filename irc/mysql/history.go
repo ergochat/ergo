@@ -736,31 +736,60 @@ func (mysql *MySQL) AddDirectMessage(sender, senderAccount, recipient, recipient
 	return
 }
 
-func (mysql *MySQL) DeleteMsgid(msgid string) (err error) {
+func (mysql *MySQL) DeleteMsgid(target, msgid string) (err error) {
 	if mysql.db == nil {
-		err = history.ErrNotFound
-		return
+		return history.ErrNotFound
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), mysql.getTimeout())
 	defer cancel()
 
-	_, id, _, _, err := mysql.lookupMsgid(ctx, msgid, true)
-	if err != nil {
-		if err == sql.ErrNoRows {
+	var ids []uint64
+	if target == "" {
+		_, id, _, _, err := mysql.lookupMsgid(ctx, msgid, true)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return history.ErrNotFound
+			}
+			return err
+		}
+		ids = append(ids, id)
+	} else {
+		decoded, err := utils.DecodeSecretToken(msgid)
+		if err != nil {
 			return history.ErrNotFound
 		}
-		return
+		rows, err := mysql.db.QueryContext(ctx, `SELECT history.id FROM history
+			INNER JOIN sequence ON history.id = sequence.history_id
+			WHERE sequence.target = ? AND history.msgid = ?;`, target, decoded)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id uint64
+			if err = rows.Scan(&id); err != nil {
+				return err
+			}
+			ids = append(ids, id)
+		}
+		if err = rows.Err(); err != nil {
+			return err
+		}
+		if err = rows.Close(); err != nil {
+			return err
+		}
 	}
-
-	err = mysql.deleteHistoryIDs(ctx, []uint64{id})
-	if err != nil {
+	if len(ids) == 0 {
+		return history.ErrNotFound
+	}
+	if err = mysql.deleteHistoryIDs(ctx, ids); err != nil {
 		return fmt.Errorf("couldn't delete msgid: %w", err)
 	}
-	return
+	return nil
 }
 
-func (mysql *MySQL) LoadMsgid(msgid string) (channel string, item history.Item, err error) {
+func (mysql *MySQL) LoadMsgid(target, msgid string) (channel string, item history.Item, err error) {
 	if mysql.db == nil {
 		err = history.ErrNotFound
 		return
@@ -769,7 +798,19 @@ func (mysql *MySQL) LoadMsgid(msgid string) (channel string, item history.Item, 
 	ctx, cancel := context.WithTimeout(context.Background(), mysql.getTimeout())
 	defer cancel()
 
-	_, _, channel, data, err := mysql.lookupMsgid(ctx, msgid, true)
+	var data []byte
+	if target != "" {
+		decoded, decodeErr := utils.DecodeSecretToken(msgid)
+		if decodeErr != nil {
+			err = history.ErrNotFound
+			return
+		}
+		err = mysql.db.QueryRowContext(ctx, `SELECT sequence.target, history.data FROM history
+			INNER JOIN sequence ON history.id = sequence.history_id
+			WHERE sequence.target = ? AND history.msgid = ? LIMIT 1;`, target, decoded).Scan(&channel, &data)
+	} else {
+		_, _, channel, data, err = mysql.lookupMsgid(ctx, msgid, true)
+	}
 	if err != nil {
 		if err == sql.ErrNoRows {
 			err = history.ErrNotFound
