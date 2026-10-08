@@ -2347,7 +2347,7 @@ func validateLineLen(msgType history.ItemType, source, target, payload string) (
 
 // check validateLineLen for an entire SplitMessage (which may consist of multiple lines)
 func validateSplitMessageLen(msgType history.ItemType, source, target string, message utils.SplitMessage) (ok bool) {
-	if message.Is512() {
+	if message.IsSingleLine() {
 		return validateLineLen(msgType, source, target, message.Message)
 	} else {
 		for _, messagePair := range message.Split {

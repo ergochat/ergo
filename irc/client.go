@@ -1487,7 +1487,7 @@ func (client *Client) destroy(session *Session) {
 // SendSplitMsgFromClient sends an IRC PRIVMSG/NOTICE coming from a specific client.
 // Adds account-tag to the line as well.
 func (session *Session) sendSplitMsgFromClientInternal(blocking bool, nickmask, accountName string, isBot bool, tags map[string]string, command, target string, message utils.SplitMessage) {
-	if message.Is512() {
+	if message.IsSingleLine() {
 		session.sendFromClientInternal(blocking, message.Time, message.Msgid, nickmask, accountName, isBot, tags, command, target, message.Message)
 	} else {
 		if session.capabilities.Has(caps.Multiline) {
