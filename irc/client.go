@@ -968,7 +968,7 @@ func (client *Client) replayPrivmsgHistory(rb *ResponseBuffer, items []history.I
 	if chathistoryCommand && endOfPagination {
 		batchTags = endOfPaginationTag
 	}
-	batchID = rb.StartNestedBatch(batchTags, "chathistory", target)
+	batchID = rb.StartNestedBatch(batchTags, "", "chathistory", target)
 
 	isSelfMessage := func(item *history.Item) bool {
 		// XXX: Params[0] is the message target. if the source of this message is an in-memory

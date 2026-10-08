@@ -191,16 +191,19 @@ func (rb *ResponseBuffer) sendBatchEnd(blocking bool) {
 
 // Starts a nested batch (see the ResponseBuffer struct definition for a description of
 // how this works)
-func (rb *ResponseBuffer) StartNestedBatch(tags map[string]string, batchType string, params ...string) (batchID string) {
+func (rb *ResponseBuffer) StartNestedBatch(tags map[string]string, prefix string, batchType string, params ...string) (batchID string) {
 	if !rb.session.capabilities.Has(caps.Batch) {
 		return
+	}
+	if prefix == "" {
+		prefix = rb.target.server.name
 	}
 	batchID = rb.session.generateBatchID()
 	msgParams := make([]string, len(params)+2)
 	msgParams[0] = "+" + batchID
 	msgParams[1] = batchType
 	copy(msgParams[2:], params)
-	rb.AddMessage(ircmsg.MakeMessage(tags, rb.target.server.name, "BATCH", msgParams...))
+	rb.AddMessage(ircmsg.MakeMessage(tags, prefix, "BATCH", msgParams...))
 	rb.nestedBatches = append(rb.nestedBatches, batchID)
 	return
 }
