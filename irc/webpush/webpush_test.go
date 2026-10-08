@@ -41,7 +41,7 @@ func TestBuildPushMessage(t *testing.T) {
 		t.Fatal(err)
 	}
 	line := string(lineBytes)
-	parsed, err := ircmsg.ParseLineStrict(line, false, 512)
+	parsed, err := ircmsg.ParseLineStrict(line, false, utils.MaxLineLen)
 	if err != nil {
 		t.Fatal(err)
 	}

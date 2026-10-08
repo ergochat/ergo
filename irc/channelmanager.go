@@ -101,6 +101,35 @@ func (cm *ChannelManager) Get(name string) (channel *Channel) {
 	return nil
 }
 
+// GetOrCreate returns an existing channel, or creates a new one with the given createdTS.
+func (cm *ChannelManager) GetOrCreate(name string, createdTS int64) *Channel {
+	cfname, err := CasefoldChannel(name)
+	if err != nil {
+		return nil
+	}
+
+	cm.Lock()
+	defer cm.Unlock()
+
+	entry := cm.chans[cfname]
+	if entry != nil {
+		return entry.channel
+	}
+
+	skeleton, _ := Skeleton(name)
+	ch := NewChannel(cm.server, name, cfname, false, RegisteredChannel{})
+	if createdTS > 0 {
+		ch.SetCreatedTime(time.Unix(createdTS, 0).UTC())
+	}
+	cm.chans[cfname] = &channelManagerEntry{
+		channel:      ch,
+		pendingJoins: 0,
+		skeleton:     skeleton,
+	}
+	cm.chansSkeletons.Add(skeleton)
+	return ch
+}
+
 // Join causes `client` to join the channel named `name`, creating it if necessary.
 func (cm *ChannelManager) Join(client *Client, name string, key string, isSajoin bool, rb *ResponseBuffer) (err error, forward string) {
 	server := client.server

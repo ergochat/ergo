@@ -45,6 +45,7 @@ _Copyright © Daniel Oaks <daniel@danieloaks.net>, Shivaram Lingamneni <slingamn
     - [IP cloaking](#ip-cloaking)
     - [Moderation](#moderation)
     - [Push notifications](#push-notifications)
+    - [Server-to-Server Linking (TS6)](#server-to-server-linking-ts6)
 - [Frequently Asked Questions](#frequently-asked-questions)
 - [IRC over TLS](#irc-over-tls)
     - [Redirect from plaintext to TLS](#how-can-i-redirect-users-from-plaintext-to-tls)
@@ -528,6 +529,49 @@ Ergo now has experimental support for push notifications via the [draft/webpush]
 * Push notifications negate the anonymization provided by Tor and I2P; an Ergo instance intended to run as a Tor onion service ("hidden service") or exclusively behind an I2P address must disable them in the Ergo configuration file.
 
 Operators and end users are invited to share feedback about push notifications, either via the project issue tracker or the support channel. Note that in order to receive push notifications, the user must be logged in with always-on enabled, and must be using a client (e.g. Goguma) that supports them.
+
+
+## Server-to-Server Linking (TS6)
+
+Ergo supports server-to-server linking using the TS6 protocol, enabling multiple Ergo instances to join together into a distributed network with state synchronization (users, channels, modes, topics), routing, and operator commands (`CONNECT`, `SQUIT`).
+
+### Configuring S2S Linking
+
+Each linked server must be configured with a unique 3-character server ID (`sid`), along with link definitions in `server.links`.
+
+#### Example Configuration with SSL/TLS
+
+```yaml
+server:
+    name: irc1.example.net
+    sid: "001"
+
+    links:
+        irc2:
+            name: irc2.example.net
+            sid: "002"
+            hostname: irc2.example.net
+            port: 6697
+            tls: true
+            send-password: "shared-link-password"
+            receive-password: "shared-link-password"
+            auto-connect: true
+```
+
+#### Link Configuration Options
+
+| Option | Type | Description |
+| --- | --- | --- |
+| `name` | string | Remote server name (must match the remote server's `server.name`). |
+| `sid` | string | Remote server's 3-character SID. |
+| `hostname` | string | Hostname or IP address to dial for outbound connections. |
+| `port` | integer | Port number (defaults to `6697` if `tls: true`, `6667` if `tls: false`). |
+| `tls` | boolean | Enables SSL/TLS encryption for outbound link connections. |
+| `send-password` | string | Password sent to the remote peer during the TS6 handshake. |
+| `receive-password` | string | Password expected from the remote peer. |
+| `auto-connect` | boolean | Automatically establish and maintain an outbound connection on startup. |
+
+Inbound link connections connect to standard listeners in `server.listeners`. When connecting to a TLS-enabled listener, TLS encryption is handled transparently.
 
 
 -------------------------------------------------------------------------------------------

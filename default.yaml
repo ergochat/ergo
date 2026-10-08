@@ -32,6 +32,10 @@ server:
     # server name
     name: ergo.test
 
+    # 3-character unique server identifier (SID) used for TS6 server-to-server linking.
+    # Must be exactly 3 alphanumeric characters (e.g. "001", "2AB").
+    # sid: "001"
+
     # addresses to listen on
     listeners:
         # The standard plaintext port for IRC is 6667. Allowing plaintext over the
@@ -238,6 +242,39 @@ server:
             # whether to accept the hostname parameter on the WEBIRC line as the IRC hostname
             # (the default/recommended Ergo configuration will use cloaks instead)
             accept-hostname: false
+
+    # server-to-server linking (TS6 protocol)
+    # allows connecting multiple Ergo servers together into a linked IRC network.
+    # links:
+    #     # each block defines a remote peer server connection
+    #     peer-server-tls:
+    #         # the server name of the remote peer (must match remote server.name)
+    #         name: irc.peer.net
+    #         # the 3-character SID of the remote peer
+    #         sid: "002"
+    #         # hostname or IP address of the peer to connect to (for outbound connections)
+    #         hostname: irc.peer.net
+    #         # port to connect to (defaults to 6697 if tls is true, 6667 if tls is false)
+    #         port: 6697
+    #         # enable TLS/SSL for secure server-to-server communication
+    #         tls: true
+    #         # password to send to the remote peer during handshake (or * if none)
+    #         send-password: "shared-link-password"
+    #         # password expected from the remote peer during handshake (or * if none)
+    #         receive-password: "shared-link-password"
+    #         # whether to automatically connect and maintain a persistent connection to this peer
+    #         auto-connect: true
+    #
+    #     # example of an inbound-only or plaintext link
+    #     # peer-server-plain:
+    #     #     name: irc2.peer.net
+    #     #     sid: "003"
+    #     #     hostname: irc2.peer.net
+    #     #     port: 6667
+    #     #     tls: false
+    #     #     send-password: "shared-link-password"
+    #     #     receive-password: "shared-link-password"
+    #     #     auto-connect: false
 
     # maximum length of clients' sendQ in bytes
     # this should be big enough to hold bursts of channel/direct messages

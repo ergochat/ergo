@@ -91,7 +91,7 @@ func DecodeSubscriptionKeys(keysParam string) (keys webpush.Keys, err error) {
 // logical order)
 func MakePushMessage(command, nuh, accountName, target string, msg utils.SplitMessage) ([]byte, error) {
 	var messageForPush string
-	if msg.Is512() {
+	if msg.IsSingleLine() {
 		messageForPush = msg.Message
 	} else {
 		messageForPush = msg.Split[0].Message
@@ -111,7 +111,7 @@ func MakePushMessage(command, nuh, accountName, target string, msg utils.SplitMe
 // MakePushLine serializes an arbitrary IRC message as a web push message;
 // we assume tags were already filtered.
 func MakePushLine(pushMessage ircmsg.Message) ([]byte, error) {
-	if line, err := pushMessage.LineBytesStrict(false, 512); err == nil {
+	if line, err := pushMessage.LineBytesStrict(false, utils.MaxLineLen); err == nil {
 		// strip final \r\n
 		return line[:len(line)-2], nil
 	} else {
