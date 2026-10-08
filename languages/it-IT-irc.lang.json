@@ -142,7 +142,7 @@
   "Multiclient functionality is currently disabled for your account": "La funzionalità Multiclient è al momento disabilitata per il tuo account",
   "Multiclient functionality is currently disabled for your account, but you can opt in": "La funzionalità Multiclient è al momento disabilitata per il tuo account, ma la puoi attivare",
   "Multiclient functionality is currently enabled for your account": "La funzionalità Multiclient è al momento attiva sul tuo account",
-  "Multiclient functionality is currently enabled for your account, but you can opt out": "La funzionalità Multiclient è al momento disabilitata per il tuo account, ma la puoi disattivare",
+  "Multiclient functionality is currently enabled for your account, but you can opt out": "La funzionalità Multiclient è al momento attiva per il tuo account, ma la puoi disattivare",
   "Network service, for more info /msg %s HELP": "Service del Network, per maggiori info /msg %s HELP",
   "Nickname is already in use": "Nickname già in uso",
   "Nickname is reserved by a different account": "Nickname riservato da un account diverso",
