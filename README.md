@@ -37,7 +37,7 @@ Ergo is a fork of the [Ergonomadic](https://github.com/jlatt/ergonomadic) IRC da
 * automated client connection limits
 * passwords stored with [bcrypt](https://godoc.org/golang.org/x/crypto)
 * `UBAN`, a unified ban system that can target IPs, networks, masks, and registered accounts (`KLINE` and `DLINE` are also supported)
-* a focus on developing with [specifications](https://ergo.chat/specs.html)
+* a focus on developing with [specifications](https://ergo.chat/specs/)
 
 
 ## Quick start guide
