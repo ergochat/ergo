@@ -123,7 +123,7 @@ func (rb *ResponseBuffer) AddFromClient(time time.Time, msgid string, fromNickMa
 
 // AddSplitMessageFromClient adds a new split message from a specific client to our queue.
 func (rb *ResponseBuffer) AddSplitMessageFromClient(fromNickMask string, fromAccount string, isBot bool, tags map[string]string, command string, target string, message utils.SplitMessage) {
-	if message.Is512() {
+	if message.IsSingleLine() {
 		if message.Message == "" {
 			// XXX this is a TAGMSG
 			rb.AddFromClient(message.Time, message.Msgid, fromNickMask, fromAccount, isBot, tags, command, target)

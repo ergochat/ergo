@@ -92,6 +92,57 @@ func NewChannel(s *Server, name, casefoldedName string, registered bool, regInfo
 	return channel
 }
 
+// CreatedTime returns the channel's creation time.
+func (channel *Channel) CreatedTime() time.Time {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	return channel.createdTime
+}
+
+// SetCreatedTime updates the channel's creation time.
+func (channel *Channel) SetCreatedTime(t time.Time) {
+	channel.stateMutex.Lock()
+	defer channel.stateMutex.Unlock()
+	channel.createdTime = t
+}
+
+// Topic returns the current topic string of the channel.
+func (channel *Channel) Topic() string {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	return channel.topic
+}
+
+// TopicSetBy returns the nickmask or server of who set the topic.
+func (channel *Channel) TopicSetBy() string {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	return channel.topicSetBy
+}
+
+// TopicSetTime returns when the channel topic was set.
+func (channel *Channel) TopicSetTime() time.Time {
+	channel.stateMutex.RLock()
+	defer channel.stateMutex.RUnlock()
+	return channel.topicSetTime
+}
+
+// AddRemoteMember adds a remote client to the channel with the specified modes.
+func (channel *Channel) AddRemoteMember(client *Client, clientModes modes.Modes) {
+	channel.joinPartMutex.Lock()
+	defer channel.joinPartMutex.Unlock()
+
+	channel.stateMutex.Lock()
+	channel.members.Add(client)
+	for _, m := range clientModes {
+		channel.members[client].modes.SetMode(m, true)
+	}
+	channel.stateMutex.Unlock()
+
+	channel.regenerateMembersCache()
+	client.channels.Add(channel)
+}
+
 func (channel *Channel) initializeLists() {
 	channel.lists = map[modes.Mode]*UserMaskSet{
 		modes.BanMask:    NewUserMaskSet(),
@@ -622,12 +673,12 @@ func (channel *Channel) hasClient(client *Client) bool {
 
 // <mode> <mode params>
 func (channel *Channel) modeStrings(client *Client) (result []string) {
-	hasPrivs := client.HasRoleCapabs("sajoin")
+	hasPrivs := client != nil && client.HasRoleCapabs("sajoin")
 
 	channel.stateMutex.RLock()
 	defer channel.stateMutex.RUnlock()
 
-	isMember := hasPrivs || channel.members.Has(client)
+	isMember := client == nil || hasPrivs || channel.members.Has(client)
 	showKey := isMember && (channel.key != "")
 	showUserLimit := channel.userLimit > 0
 	showForward := channel.forward != ""
@@ -932,6 +983,10 @@ func (channel *Channel) Join(client *Client, key string, isSajoin bool, rb *Resp
 		syncChannelMetadata(client.server, rb, channel)
 	}
 
+	if channel.server.s2s != nil {
+		channel.server.s2s.BroadcastJoin(client, channel)
+	}
+
 	if rb.session.client == client {
 		// don't send topic and names for a SAJOIN of a different client
 		channel.SendTopic(client, rb, false)
@@ -1089,6 +1144,10 @@ func (channel *Channel) Part(client *Client, message string, rb *ResponseBuffer)
 			Message:     splitMessage,
 			IsBot:       isBot,
 		}, details.account)
+	}
+
+	if channel.server.s2s != nil {
+		channel.server.s2s.BroadcastPart(client, channel, message)
 	}
 
 	client.server.logger.Debug("channels", fmt.Sprintf("%s left channel %s", details.nick, chname))
@@ -1280,6 +1339,10 @@ func (channel *Channel) SetTopic(client *Client, topic string, rb *ResponseBuffe
 	}, details.account)
 
 	channel.MarkDirty(IncludeTopic)
+
+	if channel.server.s2s != nil {
+		channel.server.s2s.BroadcastTopic(channel, client, topic)
+	}
 }
 
 // CanSpeak returns true if the client can speak on this channel, otherwise it returns false along with the channel mode preventing the client from speaking.
@@ -1417,6 +1480,10 @@ func (channel *Channel) SendSplitMessage(command string, minPrefixMode modes.Mod
 
 			cache.Send(session)
 		}
+	}
+
+	if minPrefixMode == modes.Mode(0) && channel.server.s2s != nil {
+		channel.server.s2s.BroadcastChannelMsg(channel, client, command, message, nil)
 	}
 
 	// #959: don't save STATUSMSG (or OpModerated)
@@ -1578,6 +1645,10 @@ func (channel *Channel) Kick(client *Client, target *Client, comment string, rb 
 	histItem.Params[0] = targetNick
 	channel.AddHistoryItem(histItem, details.account)
 
+	if channel.server.s2s != nil {
+		channel.server.s2s.BroadcastKick(channel, client, target, comment)
+	}
+
 	channel.Quit(target)
 }
 
@@ -1666,6 +1737,9 @@ func (channel *Channel) Invite(invitee *Client, inviter *Client, rb *ResponseBuf
 	rb.Add(nil, inviter.server.name, RPL_INVITING, details.nick, tnick, chname)
 	for _, iSession := range invitee.Sessions() {
 		iSession.sendFromClientInternal(false, message.Time, message.Msgid, details.nickMask, details.accountName, isBot, nil, "INVITE", tnick, chname)
+	}
+	if invitee.IsRemote() && channel.server.s2s != nil {
+		channel.server.s2s.BroadcastInvite(inviter, invitee, channel)
 	}
 	if away, awayMessage := invitee.Away(); away {
 		rb.Add(nil, inviter.server.name, RPL_AWAY, details.nick, tnick, awayMessage)
