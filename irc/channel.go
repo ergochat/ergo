@@ -1118,7 +1118,7 @@ func (channel *Channel) replayHistoryItems(rb *ResponseBuffer, items []history.I
 	if chathistoryCommand && endOfPagination {
 		batchTags = endOfPaginationTag
 	}
-	batchID := rb.StartNestedBatch(batchTags, "chathistory", chname)
+	batchID := rb.StartNestedBatch(batchTags, "", "chathistory", chname)
 	defer rb.EndNestedBatch(batchID)
 
 	for _, item := range items {
