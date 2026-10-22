@@ -2124,7 +2124,7 @@ func (client *Client) sendPush(endpoint string, keys webpush.Keys, urgency webpu
 	ctx, cancel := context.WithTimeout(context.Background(), config.WebPush.Timeout)
 	defer cancel()
 
-	err := webpush.SendWebPush(ctx, endpoint, keys, config.WebPush.vapidKeys, webpush.UrgencyHigh, config.WebPush.Subscriber, msg)
+	err := webpush.SendWebPush(ctx, endpoint, keys, config.WebPush.vapidKeys, urgency, config.WebPush.Subscriber, msg)
 	if err == nil {
 		client.server.logger.Debug("webpush", "dispatched push to client", client.Nick(), endpoint)
 	} else {
