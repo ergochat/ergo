@@ -838,7 +838,7 @@ func chathistoryHandler(server *Server, client *Client, msg ircmsg.Message, rb *
 				if endOfPagination {
 					batchTags = endOfPaginationTag
 				}
-				batchID := rb.StartNestedBatch(batchTags, caps.ChathistoryTargetsBatchType)
+				batchID := rb.StartNestedBatch(batchTags, "", caps.ChathistoryTargetsBatchType)
 				defer rb.EndNestedBatch(batchID)
 				for _, target := range targets {
 					name := server.UnfoldName(target.CfName)
@@ -3423,7 +3423,7 @@ func metadataRegisteredHandler(client *Client, config *Config, subcommand string
 			return
 		}
 
-		batchId := rb.StartNestedBatch(nil, "metadata", target)
+		batchId := rb.StartNestedBatch(nil, "", "metadata", target)
 		defer rb.EndNestedBatch(batchId)
 
 		for _, key := range params[2:] {
@@ -3571,7 +3571,7 @@ func metadataSubsHandler(client *Client, subcommand string, params []string, rb 
 
 		subs := rb.session.MetadataSubscriptions()
 
-		batchID := rb.StartNestedBatch(nil, "metadata-subs")
+		batchID := rb.StartNestedBatch(nil, "", "metadata-subs")
 		defer rb.EndNestedBatch(batchID)
 
 		chunked := utils.ChunkifyParams(maps.Keys(subs), lineLength)
@@ -3888,7 +3888,7 @@ func tokenServicelistHandler(server *Server, config *Config, client *Client, rb 
 		rb.Add(nil, server.name, "NOTE", "TOKEN", "NO_SERVICES", client.t("No services are defined for this network"))
 		return
 	}
-	batchID := rb.StartNestedBatch(nil, caps.AuthTokenBatchType, "*")
+	batchID := rb.StartNestedBatch(nil, "", caps.AuthTokenBatchType, "*")
 	defer rb.EndNestedBatch(batchID)
 	for srv, conf := range config.AuthToken.Services {
 		rb.Add(nil, server.name, "TOKEN", "SERVICE", srv, conf.URL, conf.Description)
@@ -3946,7 +3946,7 @@ func tokenGenerateHandler(server *Server, config *Config, client *Client, msg ir
 	const tokenChunkLength = 400
 	// always send a batch; if we don't we have to try and fit service name
 	// and the entire token on the same line
-	batchID := rb.StartNestedBatch(nil, caps.AuthTokenBatchType, service)
+	batchID := rb.StartNestedBatch(nil, "", caps.AuthTokenBatchType, service)
 	defer rb.EndNestedBatch(batchID)
 	for i := 0; i < len(token); i += tokenChunkLength {
 		end := min(len(token), i+tokenChunkLength)
@@ -4027,7 +4027,7 @@ func performTokenValidate(server *Server, config *Config, client *Client, servic
 		return
 	}
 
-	batchID := rb.StartNestedBatch(nil, caps.AuthTokenBatchType, service)
+	batchID := rb.StartNestedBatch(nil, "", caps.AuthTokenBatchType, service)
 	defer rb.EndNestedBatch(batchID)
 
 	rb.Add(nil, server.name, "TOKEN", "CLAIM", "name", claims.AccountName)

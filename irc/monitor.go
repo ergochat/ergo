@@ -69,7 +69,7 @@ func (manager *MonitorManager) AlertAbout(nick, cfnick string, online bool, clie
 			// we still need to send an empty metadata batch alongside RPL_MONONLINE
 			subs := session.MetadataSubscriptions()
 			rb := NewResponseBuffer(session)
-			batchID := rb.StartNestedBatch(nil, "metadata", nick)
+			batchID := rb.StartNestedBatch(nil, "", "metadata", nick)
 			for key := range subs {
 				if val, ok := metadata[key]; ok {
 					rb.Add(nil, client.server.name, RPL_KEYVALUE, "*", nick, key, "*", val)
