@@ -575,6 +575,8 @@ type Config struct {
 		passwordBytes  []byte
 		Name           string
 		nameCasefolded string
+		SID            string                `yaml:"sid"`
+		Links          map[string]LinkConfig `yaml:"links"`
 		Listeners      map[string]listenerConfigBlock
 		UnixBindMode   os.FileMode        `yaml:"unix-bind-mode"`
 		TorListeners   TorListenersConfig `yaml:"tor-listeners"`

@@ -110,6 +110,11 @@ type Server struct {
 	apiHandler  http.Handler // always initialized
 	apiListener *utils.ReloadableListener
 	apiServer   *http.Server // nil if API is not enabled
+
+	// S2S TS6 linking
+	sid    string
+	uidGen *UIDGenerator
+	s2s    *S2SManager
 }
 
 // NewServer returns a new Oragono server.
@@ -159,6 +164,10 @@ func NewServer(config *Config, logger *logger.Manager) (*Server, error) {
 func (server *Server) Shutdown() {
 	sdnotify.Stopping()
 	server.logger.Info("server", "Stopping server")
+
+	if server.s2s != nil {
+		server.s2s.Shutdown()
+	}
 
 	for _, client := range server.clients.AllClients() {
 		client.Notice("Server is shutting down")
@@ -473,6 +482,18 @@ func (server *Server) tryRegister(c *Client, session *Session) (exiting bool) {
 
 	server.playRegistrationBurst(session)
 
+	if c.uid == "" {
+		c.uid = server.uidGen.Next()
+		c.serverSID = server.sid
+		c.nickTS = time.Now().UTC()
+		server.clients.Lock()
+		server.clients.byUID[c.uid] = c
+		server.clients.Unlock()
+	}
+	if server.s2s != nil {
+		server.s2s.BroadcastUID(c)
+	}
+
 	if len(config.Channels.AutoJoin) > 0 {
 		// only applicable to new clients, not reattaches:
 		server.handleAutojoins(session, config.Channels.AutoJoin)
@@ -717,12 +738,18 @@ func (server *Server) applyConfig(config *Config) (err error) {
 		server.configFilename = config.Filename
 		server.name = config.Server.Name
 		server.nameCasefolded = config.Server.nameCasefolded
+		server.sid = strings.ToUpper(config.Server.SID)
+		if server.sid == "" {
+			server.sid = "001"
+		}
+		server.uidGen = NewUIDGenerator(server.sid)
 		globalCasemappingSetting = config.Server.Casemapping
 		globalUtf8EnforcementSetting = config.Server.EnforceUtf8
 		MaxLineLen = config.Server.MaxLineLen
 		RegisterTimeout = config.Server.IdleTimeouts.Registration
 		PingTimeout = config.Server.IdleTimeouts.Ping
 		DisconnectTimeout = config.Server.IdleTimeouts.Disconnect
+		server.s2s = NewS2SManager(server, config)
 	} else {
 		// enforce configs that can't be changed after launch:
 		if server.name != config.Server.Name {
@@ -819,6 +846,9 @@ func (server *Server) applyConfig(config *Config) (err error) {
 		}
 		if oldConfig.Accounts.Registration.Throttling != config.Accounts.Registration.Throttling {
 			server.accounts.resetRegisterThrottle(config)
+		}
+		if server.s2s != nil {
+			server.s2s.ApplyConfig(config)
 		}
 	}
 
@@ -1406,4 +1436,14 @@ func (server *Server) dumpStacks() {
 	} else {
 		server.logger.Error("internal", "unable to dump goroutine stacks")
 	}
+}
+
+// SID returns the 3-character server ID.
+func (server *Server) SID() string {
+	return server.sid
+}
+
+// S2S returns the S2SManager for the server.
+func (server *Server) S2S() *S2SManager {
+	return server.s2s
 }

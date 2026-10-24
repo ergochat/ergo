@@ -115,6 +115,10 @@ func performNickChange(server *Server, client *Client, target *Client, session *
 				session.sendFromClientInternal(false, message.Time, message.Msgid, origNickMask, details.accountName, isBot, nil, "NICK", assignedNickname)
 			}
 		}
+		target.nickTS = message.Time
+		if target.server.s2s != nil {
+			target.server.s2s.BroadcastNick(target, assignedNickname)
+		}
 	}
 
 	if awayChanged {
