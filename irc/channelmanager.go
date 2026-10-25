@@ -295,12 +295,14 @@ func (cm *ChannelManager) Rename(name string, newName string) (err error) {
 	var channel *Channel
 	var info RegisteredChannel
 	defer func() {
-		if channel != nil && info.Founder != "" {
-			channel.MarkDirty(IncludeAllAttrs)
-		}
-		// always-on clients need to update their saved channel memberships
-		for _, member := range channel.Members() {
-			member.markDirty(IncludeChannels)
+		if channel != nil {
+			if info.Founder != "" {
+				channel.MarkDirty(IncludeAllAttrs)
+			}
+			// always-on clients need to update their saved channel memberships
+			for _, member := range channel.Members() {
+				member.markDirty(IncludeChannels)
+			}
 		}
 	}()
 
