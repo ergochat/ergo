@@ -1207,7 +1207,6 @@ func (am *AccountManager) NsSendpass(client *Client, accountName string) (err er
 			fmt.Sprintf("client %s sent a password reset email for account %s", client.Nick(), account.Name))
 	} else {
 		am.server.logger.Error("internal", "Failed to dispatch e-mail to", account.Settings.Email, err.Error())
-		err = &registrationCallbackError{err}
 	}
 	return
 

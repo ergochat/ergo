@@ -1627,11 +1627,6 @@ func nsSendpassHandler(service *ircService, server *Server, client *Client, comm
 	case errLimitExceeded:
 		message = `Try again later`
 	default:
-		// if appropriate, show the client the error from the attempted email sending
-		if rErr := registrationCallbackErrorText(server.Config(), client, err); rErr != "" {
-			rb.Notice(rErr)
-			return
-		}
 		server.logger.Error("services", "error in NS SENDPASS", err.Error())
 		message = `An error occurred`
 	}
