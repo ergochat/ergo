@@ -7,35 +7,51 @@ package irc
 import (
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ergochat/ergo/irc/caps"
 	"github.com/ergochat/ergo/irc/modes"
 	"github.com/ergochat/ergo/irc/utils"
 )
 
-// ClientManager keeps track of clients by nick, enforcing uniqueness of casefolded nicks
+// ClientManager keeps track of clients by nick and UID, enforcing uniqueness of casefolded nicks
 type ClientManager struct {
 	sync.RWMutex // tier 2
 	byNick       map[string]*Client
 	bySkeleton   map[string]*Client
+	byUID        map[string]*Client
 }
 
 // Initialize initializes a ClientManager.
 func (clients *ClientManager) Initialize() {
 	clients.byNick = make(map[string]*Client)
 	clients.bySkeleton = make(map[string]*Client)
+	clients.byUID = make(map[string]*Client)
 }
 
-// Get retrieves a client from the manager, if they exist.
+// Get retrieves a client from the manager by nickname or UID, if they exist.
 func (clients *ClientManager) Get(nick string) *Client {
+	clients.RLock()
+	defer clients.RUnlock()
+	if len(nick) == 9 {
+		if cli, ok := clients.byUID[strings.ToUpper(nick)]; ok {
+			return cli
+		}
+	}
 	casefoldedName, err := CasefoldName(nick)
 	if err == nil {
-		clients.RLock()
-		defer clients.RUnlock()
-		cli := clients.byNick[casefoldedName]
-		return cli
+		if cli, ok := clients.byNick[casefoldedName]; ok {
+			return cli
+		}
 	}
 	return nil
+}
+
+// GetByUID retrieves a client by their TS6 UID.
+func (clients *ClientManager) GetByUID(uid string) *Client {
+	clients.RLock()
+	defer clients.RUnlock()
+	return clients.byUID[strings.ToUpper(uid)]
 }
 
 func (clients *ClientManager) removeInternal(client *Client, oldcfnick, oldskeleton string) (err error) {
@@ -67,6 +83,10 @@ func (clients *ClientManager) removeInternal(client *Client, oldcfnick, oldskele
 		}
 	} else {
 		err = errNickMissing
+	}
+
+	if client.uid != "" {
+		delete(clients.byUID, client.uid)
 	}
 
 	return
@@ -233,7 +253,62 @@ func (clients *ClientManager) SetNick(client *Client, session *Session, newNick 
 	clients.removeInternal(client, formercfnick, formerskeleton)
 	clients.byNick[newCfNick] = client
 	clients.bySkeleton[newSkeleton] = client
+	if client.uid != "" {
+		clients.byUID[client.uid] = client
+	}
 	return newNick, nil, false
+}
+
+// AddRemoteClient registers a user connected to a remote server.
+func (clients *ClientManager) AddRemoteClient(client *Client) error {
+	clients.Lock()
+	defer clients.Unlock()
+
+	cfNick, skeleton := client.uniqueIdentifiers()
+	uid := client.UID()
+
+	if _, exists := clients.byUID[uid]; exists {
+		return errNicknameInUse
+	}
+
+	clients.byNick[cfNick] = client
+	clients.bySkeleton[skeleton] = client
+	clients.byUID[uid] = client
+	return nil
+}
+
+// SetRemoteNick updates a remote client's nickname.
+func (clients *ClientManager) SetRemoteNick(client *Client, newNick string, newNickTS time.Time) error {
+	newCfNick, err := CasefoldName(newNick)
+	if err != nil {
+		return err
+	}
+	newSkeleton, err := Skeleton(newNick)
+	if err != nil {
+		return err
+	}
+
+	clients.Lock()
+	defer clients.Unlock()
+
+	oldCfNick, oldSkeleton := client.uniqueIdentifiers()
+	delete(clients.byNick, oldCfNick)
+	delete(clients.bySkeleton, oldSkeleton)
+
+	client.stateMutex.Lock()
+	client.nick = newNick
+	client.nickCasefolded = newCfNick
+	client.skeleton = newSkeleton
+	client.nickTS = newNickTS
+	client.updateNickMaskNoMutex()
+	client.stateMutex.Unlock()
+
+	clients.byNick[newCfNick] = client
+	clients.bySkeleton[newSkeleton] = client
+	if client.uid != "" {
+		clients.byUID[client.uid] = client
+	}
+	return nil
 }
 
 func (clients *ClientManager) AllClients() (result []*Client) {

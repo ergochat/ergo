@@ -1,0 +1,20 @@
+services:
+  ircd-a:
+    build:
+      context: ../..
+    init: true
+    ports:
+      - "0.0.0.0:6667:6667"
+    volumes:
+      - ./ircd-a.yaml:/ircd/ircd.yaml:ro
+    restart: unless-stopped
+
+  ircd-b:
+    build:
+      context: ../..
+    init: true
+    ports:
+      - "0.0.0.0:6668:6667"
+    volumes:
+      - ./ircd-b.yaml:/ircd/ircd.yaml:ro
+    restart: unless-stopped

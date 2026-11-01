@@ -1,0 +1,39 @@
+network:
+    name: LinkTest
+
+server:
+    name: ircd-b.test
+    sid: "002"
+    casemapping: ascii
+    allowed-characters:
+        irc-formatting: true
+        printable-glyphs: true
+    max-line-len: 4096
+    max-sendq: 10M
+    listeners:
+        ":6667":
+    links:
+        ircd-a:
+            name: ircd-a.test
+            sid: "001"
+            send-password: link-test
+            receive-password: link-test
+
+datastore:
+    path: ircd.db
+
+logging:
+    -
+        method: stderr
+        type: "server s2s"
+        level: info
+
+limits:
+    nicklen: 32
+    identlen: 20
+    realnamelen: 150
+    channellen: 64
+    awaylen: 390
+    kicklen: 390
+    topiclen: 390
+    chan-list-modes: 60

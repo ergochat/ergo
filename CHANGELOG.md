@@ -1,6 +1,22 @@
 # Changelog
 All notable changes to Ergo will be documented in this file.
 
+## [Unreleased]
+
+### Config changes
+* Added `server.sid` and `server.links` for configuring TS6 server-to-server links
+* Added `server.max-line-len` for configuring the maximum IRC line length
+* Added `server.allowed-characters` for permitting IRC formatting characters and printable Unicode glyphs in identifiers
+
+### Added
+* Added TS6 server-to-server linking, including network state synchronization, routing, server operator commands, and ENCAP support
+
+### Fixed
+* Fixed ownership transfer of inbound server-link connections
+
+### Internal
+* Added a two-server Docker Compose deployment for testing server links
+
 ## [2.19.1] - 2026-08-04
 
 Ergo 2.19.1 is a release addressing recently reported security vulnerabilities, some of which are serious. We urge all affected deployments to upgrade as soon as possible.
