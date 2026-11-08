@@ -491,6 +491,11 @@ func (cm *ChannelManager) LoadPurgeRecord(cfchname string) (record ChannelPurgeR
 }
 
 func (cm *ChannelManager) ChannelsForAccount(account string, isPrivileged bool) (channels []string) {
+	// unregistered channels have an empty founder, which shouldn't be matched
+	if account == "" {
+		return nil
+	}
+
 	cm.RLock()
 	defer cm.RUnlock()
 

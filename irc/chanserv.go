@@ -760,6 +760,10 @@ func csListHandler(service *ircService, server *Server, client *Client, command 
 
 func csInfoHandler(service *ircService, server *Server, client *Client, command string, params []string, rb *ResponseBuffer) {
 	if len(params) == 0 {
+		if client.Account() == "" {
+			service.Notice(rb, client.t("You're not logged into an account"))
+			return
+		}
 		// #765
 		listRegisteredChannels(service, client.Account(), true, rb)
 		return
