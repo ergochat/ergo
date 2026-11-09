@@ -112,7 +112,7 @@ func (m *MessageCache) InitializeSplitMessage(server *Server, nickmask, accountN
 
 	forceTrailing := forceTrailing(server.Config(), command)
 
-	if message.Is512() {
+	if message.IsSingleLine() {
 		isTagmsg := command == "TAGMSG"
 		var msg ircmsg.Message
 		if forceTrailing {
