@@ -777,13 +777,13 @@ will return an extra response of `RPL_WHOISBOT` with the numeric `335` which can
 
 ### +T - No CTCPs
 
-If this mode is set, you will not recieve CTCP messages.
+If this mode is set, you will not receive CTCP messages.
 
 To set this mode on yourself:
 
     /mode dan +T
 
-To unset this mode and recieve CTCP messages:
+To unset this mode and receive CTCP messages:
 
     /mode dan -T
 
