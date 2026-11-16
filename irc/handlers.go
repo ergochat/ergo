@@ -731,14 +731,29 @@ func capHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 		}
 	}
 
+	// #2460: we need to suppress the time tag in the CAP response for legacy
+	// clients that only support server-time, without the whole message-tags spec
+	timePreviouslyEnabled := rb.session.capabilities.Has(caps.ServerTime)
+
 	// CAP ACK / CAP NAK may also overflow the 512-byte limit, so we may need
 	// to split it. Unlike LS / LIST, each ACK and NAK is processed independently
 	// and there is no line continuation form
 	sendCapReqResponse := func(response string) {
+		// #2460: if they requested message-tags or labeled-response on the current
+		// REQ line, then they can receive tags.
+		allowTaggedResponse := timePreviouslyEnabled ||
+			rb.session.capabilities.Has(caps.MessageTags) ||
+			rb.session.capabilities.Has(caps.Batch) ||
+			rb.session.capabilities.Has(caps.LabeledResponse)
+
 		// :server.name CAP nickname ACK :list of caps\r\n
 		maxLen := (MaxLineLen - 2) - 1 - len(server.name) - 5 - len(details.nick) - 6
 		if len(capString) <= maxLen || len(capFields) == 0 {
-			rb.Add(nil, server.name, "CAP", details.nick, response, capString)
+			if allowTaggedResponse {
+				rb.Add(nil, server.name, "CAP", details.nick, response, capString)
+			} else {
+				rb.session.SendRawMessage(ircmsg.MakeMessage(nil, server.name, "CAP", details.nick, response, capString), true)
+			}
 			return
 		}
 		var t utils.TokenLineBuilder
@@ -748,7 +763,11 @@ func capHandler(server *Server, client *Client, msg ircmsg.Message, rb *Response
 		}
 		capLines := t.Lines()
 		for _, capStr := range capLines {
-			rb.Add(nil, server.name, "CAP", details.nick, response, capStr)
+			if allowTaggedResponse {
+				rb.Add(nil, server.name, "CAP", details.nick, response, capStr)
+			} else {
+				rb.session.SendRawMessage(ircmsg.MakeMessage(nil, server.name, "CAP", details.nick, response, capStr), true)
+			}
 		}
 	}
 
