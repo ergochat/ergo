@@ -154,6 +154,12 @@ CHATHISTORY is a history replay command associated with the IRCv3
 chathistory extension. See this document:
 https://ircv3.net/specs/extensions/chathistory`,
 	},
+	"connect": {
+		oper: true,
+		text: `CONNECT <server> [<port> [<remote>]]
+
+Instructs the server to establish an outbound link to the specified server.`,
+	},
 	"debug": {
 		oper: true,
 		text: `DEBUG <option>
@@ -313,10 +319,20 @@ If "KLINE LIST" is sent, the server sends back a list of our current KLINEs.
 
 To remove a KLINE, use the "UNKLINE" command.`,
 	},
+	"knock": {
+		text: `KNOCK <channel>
+
+Sends a notice to channel operators requesting an invitation to the channel.`,
+	},
 	"language": {
 		text: `LANGUAGE <code>{ <code>}
 
 Sets your preferred languages to the given ones.`,
+	},
+	"links": {
+		text: `LINKS [[<remote_server>] <mask>]
+
+Lists all servers currently linked to the network matching the given mask.`,
 	},
 	"list": {
 		text: `LIST [<channel>{,<channel>}] [<elistcond>{,<elistcond>}]
@@ -501,6 +517,12 @@ The SCENE command is used to send a scene notification to the given target.`,
 
 The SETNAME command updates the realname to be the newly-given one.`,
 	},
+	"squit": {
+		oper: true,
+		text: `SQUIT <server> [reason]
+
+Disconnects the specified server from the network.`,
+	},
 	"summon": {
 		text: `SUMMON [parameters]
 
@@ -608,6 +630,12 @@ Verifies an account in accordance with the draft/account-registration capability
 		text: `VERSION [server]
 
 Views the version of software and the RPL_ISUPPORT tokens for the given server.`,
+	},
+	"wallops": {
+		oper: true,
+		text: `WALLOPS <message>
+
+Sends a network-wide message to all users with user mode +w and all server operators.`,
 	},
 	"webirc": {
 		oper: true, // not really, but it's restricted anyways

@@ -131,6 +131,14 @@ type Client struct {
 	pushQueue               pushQueue
 	metadata                map[string]string
 	metadataThrottle        connection_limits.ThrottleDetails
+
+	// S2S TS6 fields
+	uid       string
+	serverSID string
+	nickTS    time.Time
+	isRemote  bool
+	link      *ServerLink
+	certfp    string
 }
 
 type saslStatus struct {
@@ -667,6 +675,94 @@ func (client *Client) IPString() string {
 	return utils.IPStringToHostname(client.IP().String())
 }
 
+// UID returns the 9-character TS6 UID of the client.
+func (client *Client) UID() string {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return client.uid
+}
+
+// ServerSID returns the SID of the server hosting this client.
+func (client *Client) ServerSID() string {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return client.serverSID
+}
+
+// NickTS returns the timestamp when this nickname was claimed.
+func (client *Client) NickTS() time.Time {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return client.nickTS
+}
+
+// IsRemote returns true if this client is connected to a remote server on the network.
+func (client *Client) IsRemote() bool {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return client.isRemote
+}
+
+// Link returns the ServerLink for remote clients.
+func (client *Client) Link() *ServerLink {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return client.link
+}
+
+// CertFP returns the client certificate fingerprint if available.
+func (client *Client) CertFP() string {
+	client.stateMutex.RLock()
+	defer client.stateMutex.RUnlock()
+	return client.certfp
+}
+
+// SetCertFP sets the client certificate fingerprint.
+func (client *Client) SetCertFP(fp string) {
+	client.stateMutex.Lock()
+	defer client.stateMutex.Unlock()
+	client.certfp = fp
+}
+
+// NewRemoteClient constructs a Client struct representing a user connected to a remote TS6 server.
+func NewRemoteClient(server *Server, uid, serverSID, nick, username, hostname, realhost string, ip net.IP, umodes modes.ModeSet, realname, account string, nickTS time.Time, link *ServerLink) *Client {
+	cfNick, _ := CasefoldName(nick)
+	skel, _ := Skeleton(nick)
+	rawHost := realhost
+	if rawHost == "" {
+		rawHost = hostname
+	}
+	accName := account
+	if accName == "" {
+		accName = "*"
+	}
+	c := &Client{
+		server:         server,
+		uid:            uid,
+		serverSID:      serverSID,
+		nick:           nick,
+		nickCasefolded: cfNick,
+		skeleton:       skel,
+		username:       username,
+		hostname:       hostname,
+		rawHostname:    rawHost,
+		realIP:         ip,
+		modes:          umodes,
+		realname:       realname,
+		account:        account,
+		accountName:    accName,
+		ctime:          nickTS,
+		nickTS:         nickTS,
+		lastActive:     time.Now().UTC(),
+		channels:       make(ChannelSet),
+		registered:     true,
+		isRemote:       true,
+		link:           link,
+	}
+	c.updateNickMaskNoMutex()
+	return c
+}
+
 // t returns the translated version of the given string, based on the languages configured by the client.
 func (client *Client) t(originalString string) string {
 	languageManager := client.server.Config().languageManager
@@ -738,7 +834,15 @@ func (client *Client) run(session *Session) {
 		}
 
 		msg, err := ircmsg.ParseLineStrict(line, true, MaxLineLen)
-		// XXX defer processing of command error parsing until after fakelag
+		// Check for S2S server linking handshake
+		if session.registrationMessages == 0 && client.server.s2s != nil {
+			if (msg.Command == "PASS" && len(msg.Params) >= 4 && msg.Params[1] == "TS" && msg.Params[2] == "6") ||
+				(msg.Command == "SERVER" && len(msg.Params) >= 3) ||
+				(msg.Command == "CAPAB") {
+				client.server.s2s.RunInboundLink(session, line, msg)
+				return
+			}
+		}
 
 		if client.registered {
 			// apply fakelag
@@ -1434,6 +1538,9 @@ func (client *Client) destroy(session *Session) {
 	// alert monitors
 	if registered {
 		client.server.monitorManager.AlertAbout(details.nick, details.nickCasefolded, false, nil)
+		if client.server.s2s != nil {
+			client.server.s2s.BroadcastQuit(client, quitMessage)
+		}
 	}
 
 	// clean up channels
@@ -1487,7 +1594,7 @@ func (client *Client) destroy(session *Session) {
 // SendSplitMsgFromClient sends an IRC PRIVMSG/NOTICE coming from a specific client.
 // Adds account-tag to the line as well.
 func (session *Session) sendSplitMsgFromClientInternal(blocking bool, nickmask, accountName string, isBot bool, tags map[string]string, command, target string, message utils.SplitMessage) {
-	if message.Is512() {
+	if message.IsSingleLine() {
 		session.sendFromClientInternal(blocking, message.Time, message.Msgid, nickmask, accountName, isBot, tags, command, target, message.Message)
 	} else {
 		if session.capabilities.Has(caps.Multiline) {

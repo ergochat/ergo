@@ -130,6 +130,11 @@ func init() {
 			handler:   chathistoryHandler,
 			minParams: 4,
 		},
+		"CONNECT": {
+			handler:   connectHandler,
+			minParams: 1,
+			capabs:    []string{"rehash"},
+		},
 		"DEBUG": {
 			handler:   debugHandler,
 			minParams: 1,
@@ -197,10 +202,18 @@ func init() {
 			minParams: 1,
 			capabs:    []string{"ban"},
 		},
+		"KNOCK": {
+			handler:   knockHandler,
+			minParams: 1,
+		},
 		"LANGUAGE": {
 			handler:      languageHandler,
 			usablePreReg: true,
 			minParams:    1,
+		},
+		"LINKS": {
+			handler:   linksHandler,
+			minParams: 0,
 		},
 		"LIST": {
 			handler:   listHandler,
@@ -335,6 +348,11 @@ func init() {
 			handler:   setnameHandler,
 			minParams: 1,
 		},
+		"SQUIT": {
+			handler:   squitHandler,
+			minParams: 1,
+			capabs:    []string{"rehash"},
+		},
 		"SUMMON": {
 			handler: summonHandler,
 		},
@@ -394,6 +412,10 @@ func init() {
 		"VERSION": {
 			handler:   versionHandler,
 			minParams: 0,
+		},
+		"WALLOPS": {
+			handler:   wallopsHandler,
+			minParams: 1,
 		},
 		"WEBIRC": {
 			handler:      webircHandler,
