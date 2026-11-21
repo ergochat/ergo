@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/ergochat/ergo/irc/email"
 	"github.com/ergochat/ergo/irc/languages"
 	"github.com/ergochat/ergo/irc/utils"
 )
@@ -129,5 +130,27 @@ func TestWhoFields(t *testing.T) {
 	w = w.Add('z')
 	if !w.Has('z') {
 		t.Error("failed to set and get")
+	}
+}
+
+func TestRegistrationCallbackErrorTextBlacklist(t *testing.T) {
+	lm, err := languages.NewManager(false, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := &Config{languageManager: lm}
+	// relay through an MTA, so SMTP errors are not shown to the user
+	config.Accounts.Registration.EmailVerification.MTAReal.Server = "localhost"
+	server := &Server{}
+	server.config.Store(config)
+	client := &Client{server: server}
+
+	generic := registrationCallbackErrorText(config, client, &registrationCallbackError{underlying: email.ErrNoMXRecord})
+	if generic != "Could not dispatch registration e-mail" {
+		t.Errorf("unexpected error text for SMTP failure: %q", generic)
+	}
+	blacklisted := registrationCallbackErrorText(config, client, &registrationCallbackError{underlying: email.ErrBlacklistedAddress})
+	if blacklisted != "Could not dispatch registration e-mail: Email address is blacklisted" {
+		t.Errorf("unexpected error text for blacklisted address: %q", blacklisted)
 	}
 }

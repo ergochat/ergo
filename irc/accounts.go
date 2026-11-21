@@ -503,8 +503,10 @@ func (r *registrationCallbackError) Error() string {
 
 func registrationCallbackErrorText(config *Config, client *Client, err error) string {
 	if callbackErr, ok := err.(*registrationCallbackError); ok {
-		// only expose a user-visible error if we are doing direct sending
-		if config.Accounts.Registration.EmailVerification.DirectSendingEnabled() {
+		// only expose a user-visible error if we are doing direct sending,
+		// or if the address was rejected by our own blacklist (#2451)
+		if config.Accounts.Registration.EmailVerification.DirectSendingEnabled() ||
+			callbackErr.underlying == email.ErrBlacklistedAddress {
 			errorText := ircutils.SanitizeText(callbackErr.underlying.Error(), 350)
 			return fmt.Sprintf(client.t("Could not dispatch registration e-mail: %s"), errorText)
 		} else {
